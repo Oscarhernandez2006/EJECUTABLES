@@ -1,0 +1,16 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+.vscode/
+README.md
+uploads/
+*.tmp
+doc.xml
+*_p.txt
+Req.txt
+SOBRE_COSTOS.txt
+v_*.xlsx
