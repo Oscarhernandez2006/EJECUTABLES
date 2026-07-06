@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Integraciones Siesa · Carnes Santa Cruz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+</head>
+<body>
+    <div class="app">
+        <!-- Panel de navegación lateral -->
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="brand__name">Ejecutables</span>
+            </div>
+
+            <nav class="nav" aria-label="Procesos disponibles">
+                {% for proceso in procesos %}
+                <button class="nav__item {% if loop.first %}is-active{% endif %}"
+                        data-proceso="{{ proceso.id }}"
+                        data-nombre="{{ proceso.nombre }}"
+                        data-descripcion="{{ proceso.descripcion }}"
+                        data-hoja="{{ proceso.hoja }}">
+                    <span class="nav__icon">
+                        {% if proceso.id == 'pedidos' %}
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <rect x="8" y="3" width="8" height="4" rx="1" stroke="currentColor" stroke-width="1.7" />
+                            <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-2"
+                                  stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                            <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                        </svg>
+                        {% elif proceso.id == 'requisiciones' %}
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M4 8h13l-3-3M20 16H7l3 3" stroke="currentColor" stroke-width="1.7"
+                                  stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        {% else %}
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7" />
+                            <path d="M14.5 9.5c-.5-1-1.5-1.4-2.7-1.4-1.4 0-2.5.8-2.5 2 0 2.7 5.4 1.4 5.4 4.2 0 1.3-1.2 2.1-2.7 2.1-1.4 0-2.5-.6-2.9-1.6M12 6.5v11"
+                                  stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        {% endif %}
+                    </span>
+                    <span class="nav__label">{{ proceso.nombre }}</span>
+                </button>
+                {% endfor %}
+            </nav>
+
+            <div class="sidebar__footer">
+                <div class="status-chip">
+                    <span class="status-chip__dot"></span>
+                    Conectado a Siesa
+                </div>
+            </div>
+        </aside>
+
+        <!-- Contenido principal -->
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h1 class="topbar__title" id="tituloProceso">Pedidos</h1>
+                    <p class="topbar__subtitle" id="descProceso">Importa pedidos de venta a Siesa.</p>
+                </div>
+                <div class="topbar__badge" id="hojaBadge">Hoja: PEDIDO</div>
+            </header>
+
+            <section class="content">
+                <div class="card">
+                    <div class="card__header">
+                        <h2 class="card__title">Cargar archivo Excel</h2>
+                        <p class="card__desc">
+                            Selecciona o arrastra el archivo <strong>PEDIDOS-SOBRECOSTOS.xlsx</strong>
+                            para ejecutar el proceso seleccionado.
+                        </p>
+                    </div>
+
+                    <!-- Zona de carga -->
+                    <label class="dropzone" id="dropzone" for="inputArchivo">
+                        <input type="file" id="inputArchivo" accept=".xlsx,.xlsm,.xls" hidden />
+                        <div class="dropzone__icon">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M12 16V4m0 0L8 8m4-4l4 4" stroke="currentColor" stroke-width="1.8"
+                                      stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor"
+                                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <div class="dropzone__text">
+                            <span class="dropzone__title">Arrastra tu archivo aquí</span>
+                            <span class="dropzone__sub">o haz clic para buscarlo · .xlsx, .xlsm, .xls</span>
+                        </div>
+                    </label>
+
+                    <!-- Archivo seleccionado -->
+                    <div class="file-info" id="fileInfo" hidden>
+                        <div class="file-info__icon">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"
+                                      stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                                <path d="M14 3v5h5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                            </svg>
+                        </div>
+                        <div class="file-info__meta">
+                            <span class="file-info__name" id="fileName">archivo.xlsx</span>
+                            <span class="file-info__size" id="fileSize">0 KB</span>
+                        </div>
+                        <button class="file-info__remove" id="btnQuitar" type="button" aria-label="Quitar archivo">
+                            &times;
+                        </button>
+                    </div>
+
+                    <div class="card__actions">
+                        <button class="btn btn--primary" id="btnEjecutar" type="button" disabled>
+                            <span class="btn__label">Ejecutar proceso</span>
+                            <span class="btn__spinner" hidden></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Panel de resultados -->
+                <div class="card result" id="resultCard" hidden>
+                    <div class="result__header">
+                        <span class="result__status" id="resultStatus">—</span>
+                        <span class="result__meta" id="resultMeta"></span>
+                    </div>
+                    <p class="result__message" id="resultMessage"></p>
+                    <details class="result__details" id="resultDetails" hidden>
+                        <summary>Ver respuesta del servicio</summary>
+                        <pre id="resultRaw"></pre>
+                    </details>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

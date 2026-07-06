@@ -1,0 +1,20 @@
+# Byte-compiled / optimizados
+__pycache__/
+*.py[cod]
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Archivos temporales generados por los procesos
+uploads/
+*.tmp
+doc.xml
+*_p.txt
+Req.txt
+SOBRE_COSTOS.txt
+v_*.xlsx
+
+# VS Code
+.vscode/

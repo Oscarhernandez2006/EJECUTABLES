@@ -1,0 +1,116 @@
+"""Aplicación web para la carga y ejecución de procesos de integración con Siesa.
+
+Expone una interfaz donde el usuario selecciona el tipo de proceso
+(Pedidos, Requisiciones o Sobrecostos), carga el archivo Excel y ejecuta
+la importación hacia el servicio web de Siesa.
+
+Diseñado para integrarse posteriormente a un hub de aplicaciones.
+"""
+
+import os
+import tempfile
+import traceback
+
+from flask import Flask, jsonify, render_template, request
+from werkzeug.utils import secure_filename
+
+from procesadores import PROCESADORES
+
+app = Flask(__name__)
+
+# Límite de tamaño de archivo: 25 MB.
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+
+# Extensiones de Excel permitidas.
+EXTENSIONES_PERMITIDAS = {".xlsx", ".xlsm", ".xls"}
+
+# Metadatos de cada proceso para renderizar la interfaz.
+PROCESOS = [
+    {
+        "id": "pedidos",
+        "nombre": "Pedidos",
+        "descripcion": "Importa pedidos de venta a Siesa.",
+        "hoja": "PEDIDO",
+    },
+    {
+        "id": "requisiciones",
+        "nombre": "Requisiciones",
+        "descripcion": "Importa transferencias / requisiciones de inventario.",
+        "hoja": "TRASNFERENCIA",
+    },
+    {
+        "id": "sobrecostos",
+        "nombre": "Sobrecostos",
+        "descripcion": "Importa ajustes de sobrecostos a documentos base.",
+        "hoja": "SOBRECOSTOS",
+    },
+]
+
+
+def _extension_valida(nombre_archivo):
+    _, ext = os.path.splitext(nombre_archivo.lower())
+    return ext in EXTENSIONES_PERMITIDAS
+
+
+@app.route("/")
+def index():
+    return render_template("index.html", procesos=PROCESOS)
+
+
+def _ejecutar_proceso(modulo, tipo, excel_path):
+    """Ejecuta un procesador sobre un Excel y devuelve la respuesta JSON de Flask."""
+    with tempfile.TemporaryDirectory(prefix="siesa_") as work_dir:
+        try:
+            resultado = modulo.procesar(excel_path, work_dir)
+        except Exception as exc:  # noqa: BLE001 - se reporta al usuario
+            app.logger.error("Error procesando %s: %s", tipo, traceback.format_exc())
+            return jsonify({
+                "ok": False,
+                "mensaje": f"Error al procesar el archivo: {exc}",
+            }), 500
+
+    exito = resultado.get("ok", False)
+    return jsonify({
+        "ok": exito,
+        "mensaje": "Proceso ejecutado correctamente." if exito
+        else f"El servicio respondió con código {resultado.get('status_code')}.",
+        "status_code": resultado.get("status_code"),
+        "registros": resultado.get("registros"),
+        "respuesta": resultado.get("respuesta"),
+    }), (200 if exito else 502)
+
+
+@app.route("/api/procesar/<tipo>", methods=["POST"])
+def procesar(tipo):
+    modulo = PROCESADORES.get(tipo)
+    if modulo is None:
+        return jsonify({"ok": False, "mensaje": f"Proceso no válido: {tipo}"}), 404
+
+    if "archivo" not in request.files:
+        return jsonify({"ok": False, "mensaje": "No se recibió ningún archivo."}), 400
+
+    archivo = request.files["archivo"]
+    if not archivo.filename:
+        return jsonify({"ok": False, "mensaje": "No se seleccionó ningún archivo."}), 400
+
+    if not _extension_valida(archivo.filename):
+        return jsonify({
+            "ok": False,
+            "mensaje": "Formato no permitido. Sube un archivo Excel (.xlsx, .xlsm, .xls).",
+        }), 400
+
+    nombre_seguro = secure_filename(archivo.filename)
+
+    with tempfile.TemporaryDirectory(prefix="siesa_upload_") as up_dir:
+        excel_path = os.path.join(up_dir, nombre_seguro)
+        archivo.save(excel_path)
+        return _ejecutar_proceso(modulo, tipo, excel_path)
+
+
+@app.errorhandler(413)
+def archivo_muy_grande(_error):
+    return jsonify({"ok": False, "mensaje": "El archivo supera el tamaño máximo permitido (25 MB)."}), 413
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
