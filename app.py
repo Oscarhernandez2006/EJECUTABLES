@@ -57,16 +57,36 @@ def index():
     return render_template("index.html", procesos=PROCESOS)
 
 
+def _mensaje_amigable(exc):
+    """Traduce las excepciones más comunes a un mensaje claro para el usuario."""
+    texto = str(exc)
+    tipo = type(exc).__name__
+
+    if isinstance(exc, KeyError):
+        return f"Falta la columna {texto} en el Excel (revisa el encabezado de la hoja)."
+    if isinstance(exc, ValueError) and "Worksheet" in texto:
+        return f"No se encontró la hoja indicada en el Excel: {texto}."
+    if isinstance(exc, IndexError):
+        return ("Faltan parámetros en la hoja PARAMETROS (se esperaban más filas en "
+                "la columna CODIGO_PARAMETRO).")
+    if isinstance(exc, FileNotFoundError):
+        return "No se pudo leer el archivo. Vuelve a subirlo."
+    return f"{tipo}: {texto}"
+
+
 def _ejecutar_proceso(modulo, tipo, excel_path):
     """Ejecuta un procesador sobre un Excel y devuelve la respuesta JSON de Flask."""
     with tempfile.TemporaryDirectory(prefix="siesa_") as work_dir:
         try:
             resultado = modulo.procesar(excel_path, work_dir)
         except Exception as exc:  # noqa: BLE001 - se reporta al usuario
-            app.logger.error("Error procesando %s: %s", tipo, traceback.format_exc())
+            detalle = traceback.format_exc()
+            app.logger.error("Error procesando %s: %s", tipo, detalle)
             return jsonify({
                 "ok": False,
-                "mensaje": f"Error al procesar el archivo: {exc}",
+                "mensaje": _mensaje_amigable(exc),
+                "tipo_error": type(exc).__name__,
+                "detalle": detalle,
             }), 500
 
     exito = resultado.get("ok", False)

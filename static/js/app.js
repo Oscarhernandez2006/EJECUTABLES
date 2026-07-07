@@ -126,7 +126,7 @@ function ocultarResultado() {
     resultCard.classList.remove("is-success", "is-error");
 }
 
-function mostrarResultado(exito, titulo, mensaje, meta = "", respuesta = "") {
+function mostrarResultado(exito, titulo, mensaje, meta = "", respuesta = "", opciones = {}) {
     resultCard.hidden = false;
     resultCard.classList.remove("is-success", "is-error");
     resultCard.classList.add(exito ? "is-success" : "is-error");
@@ -135,9 +135,15 @@ function mostrarResultado(exito, titulo, mensaje, meta = "", respuesta = "") {
     resultMeta.textContent = meta;
     resultMessage.textContent = mensaje;
 
+    const summary = resultDetails.querySelector("summary");
+    if (summary) {
+        summary.textContent = opciones.etiquetaDetalle || "Ver respuesta del servicio";
+    }
+
     if (respuesta) {
         resultRaw.textContent = respuesta;
         resultDetails.hidden = false;
+        resultDetails.open = Boolean(opciones.abrirDetalle);
     } else {
         resultDetails.hidden = true;
     }
@@ -167,9 +173,17 @@ async function llamarProceso(url, formData) {
 
         const meta = data.registros != null ? `${data.registros} registro(s)` : "";
         if (data.ok) {
-            mostrarResultado(true, "Proceso exitoso", data.mensaje || "Ejecutado correctamente.", meta, data.respuesta || "");
+            mostrarResultado(true, "Proceso exitoso", data.mensaje || "Ejecutado correctamente.", meta, data.respuesta || "", {
+                etiquetaDetalle: "Ver respuesta del servicio",
+            });
         } else {
-            mostrarResultado(false, "Proceso con errores", data.mensaje || "Ocurrió un error.", meta, data.respuesta || "");
+            // En errores mostramos el detalle/traceback de Python para poder corregir la plantilla.
+            const detalle = data.detalle || data.respuesta || "";
+            const titulo = data.tipo_error ? `Error: ${data.tipo_error}` : "Proceso con errores";
+            mostrarResultado(false, titulo, data.mensaje || "Ocurrió un error.", meta, detalle, {
+                etiquetaDetalle: "Ver detalle técnico (Python)",
+                abrirDetalle: Boolean(data.detalle),
+            });
         }
     } catch (err) {
         mostrarResultado(false, "Error de conexión", "No se pudo comunicar con el servidor. Intenta nuevamente.");
