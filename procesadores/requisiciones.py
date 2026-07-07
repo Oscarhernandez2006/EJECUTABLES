@@ -11,8 +11,8 @@ import pandas as pd
 from . import siesa
 
 # Credenciales del servicio web (configurables por variables de entorno).
-USER = os.getenv("SIESA_REQUISICIONES_USER", "alexander.anillo")
-PASSWORD = os.getenv("SIESA_REQUISICIONES_PASSWORD", "Director2026*")
+USER = os.getenv("SIESA_REQUISICIONES_USER", "webservices")
+PASSWORD = os.getenv("SIESA_REQUISICIONES_PASSWORD", "Santacruz2026*")
 
 
 class Req:
@@ -41,6 +41,7 @@ class Req:
         self.UN = self.data2["CODIGO_PARAMETRO"].iloc[4]
         self.CCOSTOS = self.data2["CODIGO_PARAMETRO"].iloc[5]
         self.FECHA = self.data2["CODIGO_PARAMETRO"].iloc[6]
+        self.CO_SALIDA = self.data2["CODIGO_PARAMETRO"].iloc[10]
 
         self.MOTIVO = "02"
         self.TIPO_DOC = "RQI"
@@ -73,7 +74,7 @@ class Req:
                 + "{:0>1.0f}".format(1)
                 + "{:3}".format(self.CO)
                 + "{:3}".format(self.TIPO_DOC)
-                + "{:0>8.0f}".format(fila["Número de documento"])
+                + "{:0>8.0f}".format(fila["NUM_DOC"])
                 + "{:8}".format(self.FECHA)
                 + "{:15}".format(" ")
                 + "{:5}".format(self.SOLICITANTE)
