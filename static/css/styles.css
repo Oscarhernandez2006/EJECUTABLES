@@ -191,6 +191,24 @@ body {
 .card__desc { font-size: 14px; color: var(--gray-600); margin-top: 6px; }
 .card__desc strong { color: var(--green-700); }
 
+.btn-plantilla {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-700);
+    background: var(--green-50);
+    border: 1px solid var(--green-100);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+.btn-plantilla:hover { background: var(--green-100); border-color: var(--green-500); }
+.btn-plantilla svg { width: 18px; height: 18px; }
+
 /* ---------- Dropzone ---------- */
 .dropzone {
     display: flex;

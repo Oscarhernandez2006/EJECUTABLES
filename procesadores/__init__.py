@@ -9,13 +9,14 @@ Cada módulo expone una función `procesar(excel_path, work_dir)` que:
 Y devuelve un diccionario con el resultado de la ejecución.
 """
 
-from . import pedidos, requisiciones, sobrecostos
+from . import pedidos, requisiciones, sobrecostos, cruce_contable
 
 # Mapa de tipos de proceso disponibles para la interfaz.
 PROCESADORES = {
     "pedidos": pedidos,
     "requisiciones": requisiciones,
     "sobrecostos": sobrecostos,
+    "cruce_contable": cruce_contable,
 }
 
-__all__ = ["pedidos", "requisiciones", "sobrecostos", "PROCESADORES"]
+__all__ = ["pedidos", "requisiciones", "sobrecostos", "cruce_contable", "PROCESADORES"]

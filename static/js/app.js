@@ -9,6 +9,8 @@ const navItems = document.querySelectorAll(".nav__item");
 const tituloProceso = document.getElementById("tituloProceso");
 const descProceso = document.getElementById("descProceso");
 const hojaBadge = document.getElementById("hojaBadge");
+const expectedFile = document.getElementById("expectedFile");
+const btnPlantilla = document.getElementById("btnPlantilla");
 
 const dropzone = document.getElementById("dropzone");
 const inputArchivo = document.getElementById("inputArchivo");
@@ -37,11 +39,18 @@ function seleccionarProceso(item) {
         nombre: item.dataset.nombre,
         descripcion: item.dataset.descripcion,
         hoja: item.dataset.hoja,
+        archivo: item.dataset.archivo,
     };
 
     tituloProceso.textContent = state.proceso.nombre;
     descProceso.textContent = state.proceso.descripcion;
     hojaBadge.textContent = `Hoja: ${state.proceso.hoja}`;
+    if (expectedFile && state.proceso.archivo) {
+        expectedFile.textContent = state.proceso.archivo;
+    }
+    if (btnPlantilla) {
+        btnPlantilla.href = `/plantilla/${state.proceso.id}`;
+    }
 
     ocultarResultado();
 }

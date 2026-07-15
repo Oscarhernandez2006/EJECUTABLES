@@ -11,12 +11,15 @@ import os
 import tempfile
 import traceback
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
 from werkzeug.utils import secure_filename
 
 from procesadores import PROCESADORES
 
 app = Flask(__name__)
+
+# Carpeta base del proyecto (donde viven las plantillas Excel).
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Límite de tamaño de archivo: 25 MB.
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
@@ -31,18 +34,28 @@ PROCESOS = [
         "nombre": "Pedidos",
         "descripcion": "Importa pedidos de venta a Siesa.",
         "hoja": "PEDIDO",
+        "archivo": "PEDIDOS-SOBRECOSTOS.xlsx",
     },
     {
         "id": "requisiciones",
         "nombre": "Requisiciones",
         "descripcion": "Importa transferencias / requisiciones de inventario.",
         "hoja": "TRASNFERENCIA",
+        "archivo": "PEDIDOS-SOBRECOSTOS.xlsx",
     },
     {
         "id": "sobrecostos",
         "nombre": "Sobrecostos",
         "descripcion": "Importa ajustes de sobrecostos a documentos base.",
         "hoja": "SOBRECOSTOS",
+        "archivo": "PEDIDOS-SOBRECOSTOS.xlsx",
+    },
+    {
+        "id": "cruce_contable",
+        "nombre": "Cruce Contable",
+        "descripcion": "Genera el asiento contable (débito/crédito) de reclasificación de compra.",
+        "hoja": "CANAL",
+        "archivo": "ANALISIS.xlsx",
     },
 ]
 
@@ -55,6 +68,18 @@ def _extension_valida(nombre_archivo):
 @app.route("/")
 def index():
     return render_template("index.html", procesos=PROCESOS)
+
+
+@app.route("/plantilla/<tipo>")
+def descargar_plantilla(tipo):
+    """Descarga el archivo Excel de plantilla del proceso indicado."""
+    proceso = next((p for p in PROCESOS if p["id"] == tipo), None)
+    if proceso is None:
+        abort(404)
+    archivo = proceso["archivo"]
+    if not os.path.exists(os.path.join(BASE_DIR, archivo)):
+        abort(404)
+    return send_from_directory(BASE_DIR, archivo, as_attachment=True)
 
 
 def _mensaje_amigable(exc):
