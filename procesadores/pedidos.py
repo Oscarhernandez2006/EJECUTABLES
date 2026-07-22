@@ -11,8 +11,8 @@ import pandas as pd
 from . import siesa
 
 # Credenciales del servicio web (configurables por variables de entorno).
-USER = os.getenv("SIESA_PEDIDOS_USER", "Alexander.anillo")
-PASSWORD = os.getenv("SIESA_PEDIDOS_PASSWORD", "Director2026*")
+USER = os.getenv("SIESA_PEDIDOS_USER", "webservices")
+PASSWORD = os.getenv("SIESA_PEDIDOS_PASSWORD", "Santacruz2026*")
 
 
 class Ped:

@@ -16,8 +16,8 @@ import pandas as pd
 from . import siesa
 
 # Credenciales del servicio web (configurables por variables de entorno).
-USER = os.getenv("SIESA_CRUCE_USER", "waldir.ojeda")
-PASSWORD = os.getenv("SIESA_CRUCE_PASSWORD", "Raz2008**")
+USER = os.getenv("SIESA_CRUCE_USER", "webservices")
+PASSWORD = os.getenv("SIESA_CRUCE_PASSWORD", "Santacruz2026*")
 
 
 class FacturaCompra:
