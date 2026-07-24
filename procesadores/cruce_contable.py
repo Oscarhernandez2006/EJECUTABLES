@@ -52,10 +52,10 @@ class FacturaCompra:
         self.MONEDA = "COP"
         self.REFERENCIA = "1678"
         self.TERCERO = "Generico"
-        self.AUXLIAR_DB_VACUNO = self.data2["CODIGO_PARAMETRO"].iloc[13]
-        self.AUXLIAR_DB_PORCINO = self.data2["CODIGO_PARAMETRO"].iloc[14]
-        self.AUXILIAR_CR_VACUNO = self.data2["CODIGO_PARAMETRO"].iloc[15]
-        self.AUXILIAR_CR_PORCINO = self.data2["CODIGO_PARAMETRO"].iloc[16]
+        self.AUXLIAR_DB_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[13])
+        self.AUXLIAR_DB_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[14])
+        self.AUXILIAR_CR_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[15])
+        self.AUXILIAR_CR_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[16])
         self.TERCERO_CRE = "Generico"
         self.d0 = []
 
