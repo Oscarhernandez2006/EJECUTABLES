@@ -166,8 +166,22 @@ def procesar(excel_path, work_dir):
     xml_path = os.path.join(work_dir, "doc.xml")
 
     siesa.guardar_trama(proc.d0, txt_path)
-    siesa.generar_xml(txt_path, xml_path, proc.CIA_CONEXION, USER, PASSWORD)
-    resultado = siesa.consumir_servicio_web(xml_path)
+
+    # Contenido de la trama para que el usuario pueda descargarla siempre,
+    # tenga éxito o no el envío al servicio web.
+    trama_txt = "\n".join(str(fila) for fila in proc.d0)
+
+    try:
+        siesa.generar_xml(txt_path, xml_path, proc.CIA_CONEXION, USER, PASSWORD)
+        resultado = siesa.consumir_servicio_web(xml_path)
+    except Exception as exc:  # noqa: BLE001 - se reporta al usuario y se conserva el txt
+        resultado = {
+            "ok": False,
+            "status_code": None,
+            "respuesta": f"No se pudo enviar la trama al servicio web: {exc}",
+        }
 
     resultado["registros"] = len(proc.data1)
+    resultado["trama_txt"] = trama_txt
+    resultado["trama_nombre"] = "Reclasificacion_Compra.txt"
     return resultado

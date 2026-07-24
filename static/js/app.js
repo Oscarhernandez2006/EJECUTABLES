@@ -160,6 +160,19 @@ function mostrarResultado(exito, titulo, mensaje, meta = "", respuesta = "", opc
     resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+// ---------- Descarga de la trama ----------
+function descargarTexto(nombre, contenido) {
+    const blob = new Blob([contenido], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = nombre || "trama.txt";
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+    URL.revokeObjectURL(url);
+}
+
 // ---------- Ejecución ----------
 function setCargando(cargando) {
     const label = btnEjecutar.querySelector(".btn__label");
@@ -179,6 +192,11 @@ async function llamarProceso(url, formData) {
 
         const resp = await fetch(url, opciones);
         const data = await resp.json();
+
+        // Descarga la trama generada siempre que exista, haya error o no en el envío.
+        if (data.trama_txt) {
+            descargarTexto(data.trama_nombre, data.trama_txt);
+        }
 
         const meta = data.registros != null ? `${data.registros} registro(s)` : "";
         if (data.ok) {

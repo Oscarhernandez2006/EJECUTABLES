@@ -122,6 +122,8 @@ def _ejecutar_proceso(modulo, tipo, excel_path):
         "status_code": resultado.get("status_code"),
         "registros": resultado.get("registros"),
         "respuesta": resultado.get("respuesta"),
+        "trama_txt": resultado.get("trama_txt"),
+        "trama_nombre": resultado.get("trama_nombre"),
     }), (200 if exito else 502)
 
 
