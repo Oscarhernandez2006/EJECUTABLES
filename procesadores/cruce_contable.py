@@ -32,7 +32,7 @@ class FacturaCompra:
         )
         self.data2 = pd.read_excel(
             excel_path, sheet_name="PARAMETROS",
-            dtype={"CO": str, "BODEGA": str, "UN": str},
+           # dtype={"CO": str, "BODEGA": str, "UN": str},
         )
         self.data3 = pd.read_excel(
             excel_path, sheet_name="PARAMETROS ITEMS",
@@ -104,7 +104,7 @@ class FacturaCompra:
             + "{:3}".format(self.CO)
             + "{:3}".format(self.TIPO_DOCUMENTO)
             + "{:0>8.0f}".format(1)
-            + "{:20}".format(
+            + "{:<20}".format(
                 self.AUXLIAR_DB_VACUNO if self.SERVICIO_COMPRA == "1690"
                 else self.AUXLIAR_DB_PORCINO)
             + "{:<15}".format(self.TERCERO_CRE)
@@ -133,7 +133,7 @@ class FacturaCompra:
             + "{:3}".format(self.CO)
             + "{:3}".format(self.TIPO_DOCUMENTO)
             + "{:0>8.0f}".format(1)
-            + "{:20}".format(
+            + "{:<20}".format(
                 self.AUXILIAR_CR_VACUNO if self.SERVICIO_COMPRA == "1690"
                 else self.AUXILIAR_CR_PORCINO)
             + "{:<15}".format(self.TERCERO_CRE)
