@@ -7,6 +7,7 @@ la importación hacia el servicio web de Siesa.
 Diseñado para integrarse posteriormente a un hub de aplicaciones.
 """
 
+import json
 import os
 import tempfile
 import traceback
@@ -28,34 +29,53 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 EXTENSIONES_PERMITIDAS = {".xlsx", ".xlsm", ".xls"}
 
 # Metadatos de cada proceso para renderizar la interfaz.
+# Cada proceso declara en "entradas" los archivos Excel que necesita cargar.
 PROCESOS = [
     {
         "id": "pedidos",
         "nombre": "Pedidos",
         "descripcion": "Importa pedidos de venta a Siesa.",
         "hoja": "PEDIDO",
-        "archivo": "PEDIDOS-SOBRECOSTOS.xlsx",
+        "entradas": [
+            {"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"},
+        ],
     },
     {
         "id": "requisiciones",
         "nombre": "Requisiciones",
         "descripcion": "Importa transferencias / requisiciones de inventario.",
         "hoja": "TRASNFERENCIA",
-        "archivo": "PEDIDOS-SOBRECOSTOS.xlsx",
+        "entradas": [
+            {"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"},
+        ],
     },
     {
         "id": "sobrecostos",
         "nombre": "Sobrecostos",
         "descripcion": "Importa ajustes de sobrecostos a documentos base.",
         "hoja": "SOBRECOSTOS",
-        "archivo": "PEDIDOS-SOBRECOSTOS.xlsx",
+        "entradas": [
+            {"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"},
+        ],
     },
     {
         "id": "cruce_contable",
         "nombre": "Cruce Contable",
         "descripcion": "Genera el asiento contable (débito/crédito) de reclasificación de compra.",
         "hoja": "CANAL",
-        "archivo": "ANALISIS.xlsx",
+        "entradas": [
+            {"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "ANALISIS.xlsx"},
+        ],
+    },
+    {
+        "id": "transferencia_sc",
+        "nombre": "Transferencia Desposte",
+        "descripcion": "Importa la entrada de productos terminados por transferencia de desposte.",
+        "hoja": "DESPOSTE",
+        "entradas": [
+            {"clave": "desposte", "etiqueta": "Transferencia Desposte", "archivo": "TRANSFERENCIA DESPOSTE.xlsx"},
+            {"clave": "equivalentes", "etiqueta": "Equivalentes", "archivo": "Equivalentes.xlsx"},
+        ],
     },
 ]
 
@@ -67,16 +87,19 @@ def _extension_valida(nombre_archivo):
 
 @app.route("/")
 def index():
-    return render_template("index.html", procesos=PROCESOS)
+    return render_template("index.html", procesos=PROCESOS, procesos_json=json.dumps(PROCESOS))
 
 
-@app.route("/plantilla/<tipo>")
-def descargar_plantilla(tipo):
-    """Descarga el archivo Excel de plantilla del proceso indicado."""
+@app.route("/plantilla/<tipo>/<clave>")
+def descargar_plantilla(tipo, clave):
+    """Descarga el archivo Excel de plantilla del proceso/entrada indicado."""
     proceso = next((p for p in PROCESOS if p["id"] == tipo), None)
     if proceso is None:
         abort(404)
-    archivo = proceso["archivo"]
+    entrada = next((e for e in proceso["entradas"] if e["clave"] == clave), None)
+    if entrada is None:
+        abort(404)
+    archivo = entrada["archivo"]
     if not os.path.exists(os.path.join(BASE_DIR, archivo)):
         abort(404)
     return send_from_directory(BASE_DIR, archivo, as_attachment=True)
@@ -99,11 +122,15 @@ def _mensaje_amigable(exc):
     return f"{tipo}: {texto}"
 
 
-def _ejecutar_proceso(modulo, tipo, excel_path):
-    """Ejecuta un procesador sobre un Excel y devuelve la respuesta JSON de Flask."""
+def _ejecutar_proceso(modulo, tipo, entrada):
+    """Ejecuta un procesador sobre la entrada cargada y devuelve la respuesta JSON de Flask.
+
+    ``entrada`` es una ruta de Excel (procesos de un archivo) o un diccionario
+    ``{clave: ruta}`` (procesos de varios archivos).
+    """
     with tempfile.TemporaryDirectory(prefix="siesa_") as work_dir:
         try:
-            resultado = modulo.procesar(excel_path, work_dir)
+            resultado = modulo.procesar(entrada, work_dir)
         except Exception as exc:  # noqa: BLE001 - se reporta al usuario
             detalle = traceback.format_exc()
             app.logger.error("Error procesando %s: %s", tipo, detalle)
@@ -130,28 +157,39 @@ def _ejecutar_proceso(modulo, tipo, excel_path):
 @app.route("/api/procesar/<tipo>", methods=["POST"])
 def procesar(tipo):
     modulo = PROCESADORES.get(tipo)
-    if modulo is None:
+    proceso = next((p for p in PROCESOS if p["id"] == tipo), None)
+    if modulo is None or proceso is None:
         return jsonify({"ok": False, "mensaje": f"Proceso no válido: {tipo}"}), 404
 
-    if "archivo" not in request.files:
-        return jsonify({"ok": False, "mensaje": "No se recibió ningún archivo."}), 400
+    entradas = proceso["entradas"]
 
-    archivo = request.files["archivo"]
-    if not archivo.filename:
-        return jsonify({"ok": False, "mensaje": "No se seleccionó ningún archivo."}), 400
+    # Valida que se hayan recibido todos los archivos requeridos por el proceso.
+    faltantes = [e for e in entradas
+                 if e["clave"] not in request.files or not request.files[e["clave"]].filename]
+    if faltantes:
+        nombres = ", ".join(e["etiqueta"] for e in faltantes)
+        return jsonify({"ok": False, "mensaje": f"Falta cargar: {nombres}."}), 400
 
-    if not _extension_valida(archivo.filename):
-        return jsonify({
-            "ok": False,
-            "mensaje": "Formato no permitido. Sube un archivo Excel (.xlsx, .xlsm, .xls).",
-        }), 400
-
-    nombre_seguro = secure_filename(archivo.filename)
+    for entrada in entradas:
+        archivo = request.files[entrada["clave"]]
+        if not _extension_valida(archivo.filename):
+            return jsonify({
+                "ok": False,
+                "mensaje": f"'{entrada['etiqueta']}': formato no permitido. Sube un Excel (.xlsx, .xlsm, .xls).",
+            }), 400
 
     with tempfile.TemporaryDirectory(prefix="siesa_upload_") as up_dir:
-        excel_path = os.path.join(up_dir, nombre_seguro)
-        archivo.save(excel_path)
-        return _ejecutar_proceso(modulo, tipo, excel_path)
+        rutas = {}
+        for entrada in entradas:
+            archivo = request.files[entrada["clave"]]
+            nombre_seguro = secure_filename(archivo.filename)
+            ruta = os.path.join(up_dir, f"{entrada['clave']}_{nombre_seguro}")
+            archivo.save(ruta)
+            rutas[entrada["clave"]] = ruta
+
+        # Procesos de un solo archivo reciben la ruta directa; los de varios, el diccionario.
+        entrada_proc = rutas[entradas[0]["clave"]] if len(entradas) == 1 else rutas
+        return _ejecutar_proceso(modulo, tipo, entrada_proc)
 
 
 @app.errorhandler(413)

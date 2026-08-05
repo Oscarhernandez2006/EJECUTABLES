@@ -1,23 +1,20 @@
 // Estado de la aplicación
 const state = {
     proceso: null,
-    archivo: null,
+    archivos: {}, // clave de entrada -> File seleccionado
 };
+
+// Configuración de procesos inyectada por el servidor (incluye las "entradas").
+const PROCESOS = window.PROCESOS || [];
 
 // Referencias del DOM
 const navItems = document.querySelectorAll(".nav__item");
 const tituloProceso = document.getElementById("tituloProceso");
 const descProceso = document.getElementById("descProceso");
 const hojaBadge = document.getElementById("hojaBadge");
-const expectedFile = document.getElementById("expectedFile");
-const btnPlantilla = document.getElementById("btnPlantilla");
 
-const dropzone = document.getElementById("dropzone");
-const inputArchivo = document.getElementById("inputArchivo");
-const fileInfo = document.getElementById("fileInfo");
-const fileName = document.getElementById("fileName");
-const fileSize = document.getElementById("fileSize");
-const btnQuitar = document.getElementById("btnQuitar");
+const entradasContainer = document.getElementById("entradas");
+const entradaTemplate = document.getElementById("entradaTemplate");
 const btnEjecutar = document.getElementById("btnEjecutar");
 
 const resultCard = document.getElementById("resultCard");
@@ -29,41 +26,11 @@ const resultRaw = document.getElementById("resultRaw");
 
 const EXTENSIONES = [".xlsx", ".xlsm", ".xls"];
 
-// ---------- Navegación entre procesos ----------
-function seleccionarProceso(item) {
-    navItems.forEach((n) => n.classList.remove("is-active"));
-    item.classList.add("is-active");
-
-    state.proceso = {
-        id: item.dataset.proceso,
-        nombre: item.dataset.nombre,
-        descripcion: item.dataset.descripcion,
-        hoja: item.dataset.hoja,
-        archivo: item.dataset.archivo,
-    };
-
-    tituloProceso.textContent = state.proceso.nombre;
-    descProceso.textContent = state.proceso.descripcion;
-    hojaBadge.textContent = `Hoja: ${state.proceso.hoja}`;
-    if (expectedFile && state.proceso.archivo) {
-        expectedFile.textContent = state.proceso.archivo;
-    }
-    if (btnPlantilla) {
-        btnPlantilla.href = `/plantilla/${state.proceso.id}`;
-    }
-
-    ocultarResultado();
+function procesoPorId(id) {
+    return PROCESOS.find((p) => p.id === id) || null;
 }
 
-navItems.forEach((item) => {
-    item.addEventListener("click", () => seleccionarProceso(item));
-});
-
-// Inicializa con el primer proceso activo
-const primerItem = document.querySelector(".nav__item.is-active") || navItems[0];
-if (primerItem) seleccionarProceso(primerItem);
-
-// ---------- Manejo de archivo ----------
+// ---------- Utilidades de archivo ----------
 function extensionValida(nombre) {
     const lower = nombre.toLowerCase();
     return EXTENSIONES.some((ext) => lower.endsWith(ext));
@@ -75,58 +42,112 @@ function formatearTamano(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function establecerArchivo(archivo) {
-    if (!archivo) return;
+// ---------- Render de las zonas de carga ----------
+function renderEntradas(proceso) {
+    entradasContainer.innerHTML = "";
+    state.archivos = {};
 
-    if (!extensionValida(archivo.name)) {
-        mostrarResultado(false, "Formato no permitido", "Selecciona un archivo Excel (.xlsx, .xlsm, .xls).");
-        return;
-    }
+    proceso.entradas.forEach((entrada) => {
+        const nodo = entradaTemplate.content.firstElementChild.cloneNode(true);
+        nodo.dataset.clave = entrada.clave;
 
-    state.archivo = archivo;
-    fileName.textContent = archivo.name;
-    fileSize.textContent = formatearTamano(archivo.size);
-    fileInfo.hidden = false;
-    btnEjecutar.disabled = false;
+        nodo.querySelector(".entrada__label").textContent = entrada.etiqueta;
+
+        const plantilla = nodo.querySelector(".entrada__plantilla");
+        plantilla.href = `/plantilla/${proceso.id}/${entrada.clave}`;
+
+        const dropzone = nodo.querySelector(".dropzone");
+        const input = nodo.querySelector(".entrada__input");
+        const fileInfo = nodo.querySelector(".file-info");
+        const fileName = nodo.querySelector(".file-info__name");
+        const fileSize = nodo.querySelector(".file-info__size");
+        const btnQuitar = nodo.querySelector(".file-info__remove");
+        const subtitulo = nodo.querySelector(".dropzone__sub");
+
+        // Deja claro qué archivo se espera en esta zona.
+        subtitulo.textContent = `Archivo esperado: ${entrada.archivo}`;
+
+        const establecer = (archivo) => {
+            if (!archivo) return;
+            if (!extensionValida(archivo.name)) {
+                mostrarResultado(false, "Formato no permitido", `'${entrada.etiqueta}': selecciona un Excel (.xlsx, .xlsm, .xls).`);
+                return;
+            }
+            state.archivos[entrada.clave] = archivo;
+            fileName.textContent = archivo.name;
+            fileSize.textContent = formatearTamano(archivo.size);
+            fileInfo.hidden = false;
+            ocultarResultado();
+            actualizarBotonEjecutar();
+        };
+
+        const quitar = () => {
+            delete state.archivos[entrada.clave];
+            input.value = "";
+            fileInfo.hidden = true;
+            actualizarBotonEjecutar();
+        };
+
+        input.addEventListener("change", (e) => establecer(e.target.files[0]));
+
+        btnQuitar.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            quitar();
+        });
+
+        // Drag & drop por zona
+        ["dragenter", "dragover"].forEach((evt) => {
+            dropzone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropzone.classList.add("is-dragover");
+            });
+        });
+        ["dragleave", "drop"].forEach((evt) => {
+            dropzone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropzone.classList.remove("is-dragover");
+            });
+        });
+        dropzone.addEventListener("drop", (e) => establecer(e.dataTransfer.files[0]));
+
+        entradasContainer.appendChild(nodo);
+    });
+}
+
+function archivosCompletos() {
+    if (!state.proceso) return false;
+    return state.proceso.entradas.every((e) => Boolean(state.archivos[e.clave]));
+}
+
+function actualizarBotonEjecutar() {
+    btnEjecutar.disabled = !archivosCompletos();
+}
+
+// ---------- Navegación entre procesos ----------
+function seleccionarProceso(item) {
+    navItems.forEach((n) => n.classList.remove("is-active"));
+    item.classList.add("is-active");
+
+    const proceso = procesoPorId(item.dataset.proceso);
+    state.proceso = proceso;
+
+    tituloProceso.textContent = proceso.nombre;
+    descProceso.textContent = proceso.descripcion;
+    hojaBadge.textContent = `Hoja: ${proceso.hoja}`;
+
+    renderEntradas(proceso);
+    actualizarBotonEjecutar();
     ocultarResultado();
 }
 
-function quitarArchivo() {
-    state.archivo = null;
-    inputArchivo.value = "";
-    fileInfo.hidden = true;
-    btnEjecutar.disabled = true;
-}
-
-inputArchivo.addEventListener("change", (e) => {
-    establecerArchivo(e.target.files[0]);
+navItems.forEach((item) => {
+    item.addEventListener("click", () => seleccionarProceso(item));
 });
 
-btnQuitar.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    quitarArchivo();
-});
-
-// Drag & drop
-["dragenter", "dragover"].forEach((evt) => {
-    dropzone.addEventListener(evt, (e) => {
-        e.preventDefault();
-        dropzone.classList.add("is-dragover");
-    });
-});
-
-["dragleave", "drop"].forEach((evt) => {
-    dropzone.addEventListener(evt, (e) => {
-        e.preventDefault();
-        dropzone.classList.remove("is-dragover");
-    });
-});
-
-dropzone.addEventListener("drop", (e) => {
-    const archivo = e.dataTransfer.files[0];
-    establecerArchivo(archivo);
-});
+// Inicializa con el primer proceso activo
+const primerItem = document.querySelector(".nav__item.is-active") || navItems[0];
+if (primerItem) seleccionarProceso(primerItem);
 
 // ---------- Resultado ----------
 function ocultarResultado() {
@@ -177,7 +198,7 @@ function descargarTexto(nombre, contenido) {
 function setCargando(cargando) {
     const label = btnEjecutar.querySelector(".btn__label");
     const spinner = btnEjecutar.querySelector(".btn__spinner");
-    btnEjecutar.disabled = cargando || !state.archivo;
+    btnEjecutar.disabled = cargando || !archivosCompletos();
     spinner.hidden = !cargando;
     label.textContent = cargando ? "Procesando…" : "Ejecutar proceso";
 }
@@ -187,10 +208,7 @@ async function llamarProceso(url, formData) {
     ocultarResultado();
 
     try {
-        const opciones = { method: "POST" };
-        if (formData) opciones.body = formData;
-
-        const resp = await fetch(url, opciones);
+        const resp = await fetch(url, { method: "POST", body: formData });
         const data = await resp.json();
 
         // Descarga la trama generada siempre que exista, haya error o no en el envío.
@@ -220,9 +238,11 @@ async function llamarProceso(url, formData) {
 }
 
 function ejecutar() {
-    if (!state.archivo || !state.proceso) return;
+    if (!state.proceso || !archivosCompletos()) return;
     const formData = new FormData();
-    formData.append("archivo", state.archivo);
+    state.proceso.entradas.forEach((entrada) => {
+        formData.append(entrada.clave, state.archivos[entrada.clave]);
+    });
     llamarProceso(`/api/procesar/${state.proceso.id}`, formData);
 }
 

@@ -209,6 +209,19 @@ body {
 .btn-plantilla:hover { background: var(--green-100); border-color: var(--green-500); }
 .btn-plantilla svg { width: 18px; height: 18px; }
 
+/* ---------- Entradas (una o varias zonas de carga) ---------- */
+.entradas { display: flex; flex-direction: column; gap: 22px; }
+.entrada { display: flex; flex-direction: column; }
+.entrada__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.entrada__label { font-size: 14px; font-weight: 600; color: var(--gray-600); }
+.entrada__plantilla { margin-top: 0; }
+
 /* ---------- Dropzone ---------- */
 .dropzone {
     display: flex;
