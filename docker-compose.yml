@@ -1,46 +1,42 @@
 # ============================================================
-# EJECUTABLES — Procesador de integraciones Siesa
-# Despliegue en Dokploy con Traefik.
+# EJECUTABLES (cnx) — Procesador de integraciones Siesa
+# Despliegue en Dokploy (Docker Swarm) con Traefik.
 #
-# Carga y procesa archivos Excel para:
-# - Pedidos (430/431)
-# - Requisiciones (440/441)
-# - Sobrecostos (451/452)
+# IMPORTANTE (Swarm): Traefik lee los labels del SERVICIO, por eso van bajo
+# `deploy.labels` y NO bajo `labels:`. Así sobreviven a cada redeploy y ya no
+# hay que reaplicarlos por SSH con `docker service update`.
 #
 # Define las variables sensibles en el panel de variables de entorno de Dokploy.
 # ============================================================
 services:
-  ejecutables:
+  cnx:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: unless-stopped
     environment:
       PORT: "5000"
       FLASK_ENV: production
-      # Variables para conexión a Siesa (define en Dokploy):
-      # SIESA_URL: ${SIESA_URL}
-      # SIESA_USER: ${SIESA_USER}
-      # SIESA_PASSWORD: ${SIESA_PASSWORD}
-      # etc.
-    expose:
-      - "5000"
     networks:
       - dokploy-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=dokploy-network"
-      # HTTP -> redirige a HTTPS
-      - "traefik.http.routers.ejecutables-web.rule=Host(`ejecutables.grupo-santacruz.com`)"
-      - "traefik.http.routers.ejecutables-web.entrypoints=web"
-      - "traefik.http.routers.ejecutables-web.middlewares=ejecutables-redirect"
-      # HTTPS
-      - "traefik.http.routers.ejecutables-secure.rule=Host(`ejecutables.grupo-santacruz.com`)"
-      - "traefik.http.routers.ejecutables-secure.entrypoints=websecure"
-      - "traefik.http.routers.ejecutables-secure.tls=true"
-      - "traefik.http.routers.ejecutables-secure.tls.certresolver=letsencrypt"
-      - "traefik.http.middlewares.ejecutables-redirect.redirectscheme.scheme=https"
-      - "traefik.http.services.ejecutables.loadbalancer.server.port=5000"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=dokploy-network"
+        # HTTP -> redirige a HTTPS
+        - "traefik.http.routers.cnx-web.rule=Host(`cnx.grupo-santacruz.com`)"
+        - "traefik.http.routers.cnx-web.entrypoints=web"
+        - "traefik.http.routers.cnx-web.middlewares=cnx-redirect"
+        - "traefik.http.middlewares.cnx-redirect.redirectscheme.scheme=https"
+        # HTTPS
+        - "traefik.http.routers.cnx-secure.rule=Host(`cnx.grupo-santacruz.com`)"
+        - "traefik.http.routers.cnx-secure.entrypoints=websecure"
+        - "traefik.http.routers.cnx-secure.tls=true"
+        - "traefik.http.routers.cnx-secure.tls.certresolver=letsencrypt"
+        # Puerto interno del contenedor (gunicorn escucha en 5000)
+        - "traefik.http.services.cnx.loadbalancer.server.port=5000"
 
 networks:
   dokploy-network:
