@@ -9,6 +9,7 @@ Diseñado para integrarse posteriormente a un hub de aplicaciones.
 
 import inspect
 import json
+import logging
 import os
 import tempfile
 import traceback
@@ -26,6 +27,17 @@ from config import (
 )
 
 app = Flask(__name__)
+
+# Logging: nivel configurable por env (LOG_LEVEL). En Dokploy se ve en la
+# pestaña Logs del contenedor.
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+app.logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
+
+# Devuelve el traceback completo al cliente solo si APP_DEBUG=1 (no en prod).
+DEBUG_ERRORES = os.getenv("APP_DEBUG", "0") == "1"
 
 # Carpeta base del proyecto (donde viven las plantillas Excel).
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -217,18 +229,29 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
         except Exception as exc:  # noqa: BLE001 - se reporta al usuario
             detalle = traceback.format_exc()
             app.logger.error("Error procesando %s: %s", tipo, detalle)
-            return jsonify({
+            payload = {
                 "ok": False,
                 "mensaje": _mensaje_amigable(exc),
                 "tipo_error": type(exc).__name__,
-                "detalle": detalle,
-            }), 500
+            }
+            # El traceback completo solo se expone si APP_DEBUG=1.
+            if DEBUG_ERRORES:
+                payload["detalle"] = detalle
+            return jsonify(payload), 500
 
     exito = resultado.get("ok", False)
+    mensaje = resultado.get("mensaje") or (
+        "Proceso ejecutado correctamente." if exito
+        else "El servicio de Siesa reportó un error."
+    )
+    if exito:
+        app.logger.info("Proceso %s OK (%s registros).", tipo, resultado.get("registros"))
+    else:
+        app.logger.warning("Proceso %s con error: %s", tipo, mensaje)
+
     return jsonify({
         "ok": exito,
-        "mensaje": "Proceso ejecutado correctamente." if exito
-        else f"El servicio respondió con código {resultado.get('status_code')}.",
+        "mensaje": mensaje,
         "status_code": resultado.get("status_code"),
         "registros": resultado.get("registros"),
         "respuesta": resultado.get("respuesta"),

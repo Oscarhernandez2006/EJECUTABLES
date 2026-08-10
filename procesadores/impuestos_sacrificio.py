@@ -16,8 +16,8 @@ import pandas as pd
 
 from . import siesa
 
-USER = os.getenv("SIESA_IMPUESTOS_USER", "webservices")
-PASSWORD = os.getenv("SIESA_IMPUESTOS_PASSWORD", "Santacruz2026*")
+USER = siesa.SIESA_USER
+PASSWORD = siesa.SIESA_PASSWORD
 
 MOTIVO = "01"
 TIPO_DOCUMENTO = "EAC"

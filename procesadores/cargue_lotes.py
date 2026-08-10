@@ -13,8 +13,8 @@ import pandas as pd
 
 from . import siesa
 
-USER = os.getenv("SIESA_LOTES_USER", "webservices")
-PASSWORD = os.getenv("SIESA_LOTES_PASSWORD", "Santacruz2026*")
+USER = siesa.SIESA_USER
+PASSWORD = siesa.SIESA_PASSWORD
 
 INDICADOR_ACTUALIZACION = 1
 

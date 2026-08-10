@@ -5,6 +5,7 @@ construcción del XML de importación y consumo del servicio SOAP.
 """
 
 import os
+import re
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 import pandas as pd
@@ -13,6 +14,12 @@ import requests
 # Endpoint del servicio web de Siesa (común a todos los procesos).
 URL_SERVICIO = "https://wscarnesantacruz.siesacloud.com:8043/wsUNOEE/wsUNOEE.asmx"
 NOMBRE_CONEXION = "UnoEE_Carnesantacruz_Real"
+
+# Credenciales del servicio web de Siesa. En producción defínelas por variables
+# de entorno (Dokploy): SIESA_USER y SIESA_PASSWORD. El valor por defecto se deja
+# solo por compatibilidad y DEBE rotarse (quedó expuesto en el repositorio).
+SIESA_USER = os.getenv("SIESA_USER", "webservices")
+SIESA_PASSWORD = os.getenv("SIESA_PASSWORD", "Santacruz2026*")
 
 # Raíz del proyecto y archivo de referencias FRIGOAPP -> Siesa (constante entre
 # empresas). Empaquetado junto a la aplicación para procesos que lo requieren
@@ -85,8 +92,10 @@ def guardar_trama(filas, ruta_archivo):
     return ruta_archivo
 
 
-def generar_xml(txt_path, xml_path, cia_conexion, usuario, clave):
+def generar_xml(txt_path, xml_path, cia_conexion, usuario=None, clave=None):
     """Construye el XML de importación a partir de la trama de texto."""
+    usuario = usuario or SIESA_USER
+    clave = clave or SIESA_PASSWORD
     importar = Element("Importar")
 
     nombre_conexion = SubElement(importar, "NombreConexion")
@@ -116,7 +125,17 @@ def generar_xml(txt_path, xml_path, cia_conexion, usuario, clave):
 
 
 def consumir_servicio_web(xml_path, url=URL_SERVICIO):
-    """Envía el XML al servicio web SOAP y devuelve un diccionario con el resultado."""
+    """Envía el XML al servicio web SOAP y devuelve un diccionario con el resultado.
+
+    El resultado incluye:
+      - ``ok``: True solo si HTTP 200, sin SOAP Fault y sin marcadores de error
+        en la respuesta de Siesa (para no dar por bueno un error de negocio o
+        de autenticación que Siesa devuelve con código 200).
+      - ``status_code``: código HTTP.
+      - ``respuesta``: texto SOAP completo (para depuración).
+      - ``mensaje``: mensaje legible extraído de Siesa (o del fault/red).
+      - ``error``: bandera booleana de error.
+    """
     with open(xml_path, "r") as f:
         xml_content = f.read()
 
@@ -137,10 +156,73 @@ def consumir_servicio_web(xml_path, url=URL_SERVICIO):
         "SOAPAction": "http://tempuri.org/ImportarXML",
     }
 
-    response = requests.post(url, data=soap_body, headers=headers, timeout=120)
+    # Errores de red/timeout no revientan el proceso: se reportan estructurados.
+    try:
+        response = requests.post(url, data=soap_body, headers=headers, timeout=120)
+    except requests.exceptions.RequestException as exc:
+        return {
+            "ok": False,
+            "status_code": None,
+            "respuesta": "",
+            "mensaje": f"No se pudo conectar con el servicio de Siesa: {exc}",
+            "error": True,
+        }
+
+    texto = response.text or ""
+    fault = _extraer_fault(texto)
+    resultado_siesa = _extraer_resultado_siesa(texto)
+
+    hay_error = (
+        response.status_code != 200
+        or fault is not None
+        or _resultado_es_error(resultado_siesa)
+    )
+
+    if fault:
+        mensaje = f"Error del servicio de Siesa: {fault}"
+    elif resultado_siesa:
+        mensaje = resultado_siesa
+    elif hay_error:
+        mensaje = f"El servicio de Siesa respondió con código {response.status_code}."
+    else:
+        mensaje = "Importación aceptada por Siesa."
 
     return {
-        "ok": response.status_code == 200,
+        "ok": not hay_error,
         "status_code": response.status_code,
-        "respuesta": response.text,
+        "respuesta": texto,
+        "mensaje": mensaje,
+        "error": hay_error,
     }
+
+
+# Marcadores típicos de error en la respuesta de Siesa (heurística conservadora).
+_MARCADORES_ERROR = (
+    "error", "no se pudo", "inv\u00e1lid", "invalid", "incorrect", "fall\u00f3",
+    "excepc", "denied", "no autoriz", "rechaz", "no existe", "obligatori",
+)
+
+
+def _extraer_resultado_siesa(texto):
+    """Extrae y desescapa el contenido de <ImportarXMLResult> del SOAP."""
+    m = re.search(r"<ImportarXMLResult>(.*?)</ImportarXMLResult>", texto, re.DOTALL)
+    if not m:
+        return None
+    val = m.group(1)
+    for a, b in (("&lt;", "<"), ("&gt;", ">"), ("&quot;", '"'), ("&apos;", "'"), ("&amp;", "&")):
+        val = val.replace(a, b)
+    return val.strip()
+
+
+def _extraer_fault(texto):
+    """Extrae el <faultstring> de un SOAP Fault, si lo hay."""
+    m = re.search(r"<faultstring>(.*?)</faultstring>", texto, re.DOTALL)
+    return m.group(1).strip() if m else None
+
+
+def _resultado_es_error(resultado):
+    """Heurística: True si el texto de Siesa contiene marcadores de error."""
+    if not resultado:
+        return False
+    bajo = resultado.lower()
+    return any(marca in bajo for marca in _MARCADORES_ERROR)
