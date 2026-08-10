@@ -15,6 +15,9 @@
 # ============================================================
 services:
   cnx:
+    # `image` es necesario en modo Stack (docker stack deploy no construye).
+    # Dokploy construye con `build` y la etiqueta con este nombre; el Stack la usa.
+    image: cnx-app:latest
     build:
       context: .
       dockerfile: Dockerfile
