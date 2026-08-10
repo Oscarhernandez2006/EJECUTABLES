@@ -60,7 +60,7 @@ class FleteBovino:
         self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
         self.data1 = self.data1[self.data1["FECHA SACRIFICIO SIESA"] == self.fecha]
         self.data1 = self.data1[self.data1["PESO EN FINCA"] > 0]
-        self.data1["flete*animal"] = self.data1["flete*animal"].round(2)
+        self.data1["flete*animal"] = self.data1["flete*animal"].round(0)
 
     def consecutivo_documento(self):
         self.enc_data1 = self.data1.copy()
@@ -101,7 +101,7 @@ class FleteBovino:
                 + "{:3}".format("403")
                 + "{:3}".format("001")
                 + "{:<15}".format(self.COMPRADOR)
-                + "{:12}".format(fila["LOTE"])[:15]
+                + "{:12}".format(fila["LOTE"])[:12]
                 + "{:3}".format(MONEDA)
                 + "{:3}".format(MONEDA)
                 + "{:0>13.4f}".format(1)

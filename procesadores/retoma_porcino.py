@@ -80,7 +80,7 @@ class RetomaPorcino:
         for i, _ in self.data1.iterrows():
             self.data1.at[i, "COSTO_UNITARIO"] = round(self.data1.at[i, "COSTO_UNITARIO"], 2)
 
-    def _detalle(self, c, ti, costo, referencia):
+    def _detalle(self, c, ti, costo, referencia, nota="ENTRADA POR SARIFICIO"):
         return (
             siesa.generar_cons(c, 7)
             + "{:0>4.0f}".format(470)
@@ -105,7 +105,7 @@ class RetomaPorcino:
             + "{:0>20.4f}".format(1)
             + "{:0>20.4f}".format(0)
             + "{:0>20.4f}".format(costo)
-            + "{:255}".format("ENTRADA POR SARIFICIO")
+            + "{:255}".format(nota)
             + "{:2000}".format(" ")
             + "{:40}".format(" ")
             + "{:4}".format("U")
@@ -178,7 +178,7 @@ class RetomaPorcino:
         # Bloque víscera blanca (ref 2423), solo CERDO EN PIE.
         for i, _ in self.data1.iterrows():
             if self.data1.at[i, "CONCEPTO"] == "CERDO EN PIE":
-                self.d0.append(self._detalle(c, ti, self.COSTO_VISCERA_BLANCA, "2423"))
+                self.d0.append(self._detalle(c, ti, self.COSTO_VISCERA_BLANCA, "2423", "ENTRADA POR SARIFICIO PORCINO"))
                 c += 1
 
         # Bloque cabeza (ref 2002), CERDO EN PIE o canales con cabeza.

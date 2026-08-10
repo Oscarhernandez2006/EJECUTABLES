@@ -39,6 +39,10 @@ PARAMETROS_ESQUEMA = {
         {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
         {"clave": "BODEGA", "etiqueta": "Bodega", "tipo": "text"},
     ],
+    "retoma_vacuno": [
+        {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
+        {"clave": "BODEGA_PROCESO", "etiqueta": "Bodega de subproductos", "tipo": "text"},
+    ],
     "retoma_porcino": [
         {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
         {"clave": "BODEGA_SUBPROCESOS", "etiqueta": "Bodega de subprocesos", "tipo": "text"},
@@ -152,12 +156,19 @@ CANAL_COLUMNAS = [
     {"clave": "PESO EN FINCA", "etiqueta": "Peso en finca", "tipo": "number"},
     {"clave": "NIT PROVEEDOR FLETE", "etiqueta": "NIT proveedor flete", "tipo": "text"},
     {"clave": "flete*animal", "etiqueta": "Flete por animal", "tipo": "number"},
+    # --- Columnas de subproductos (retoma vacuno), no están en el Excel de ejemplo ---
+    {"clave": "K. piel", "etiqueta": "Kilos piel", "tipo": "number"},
+    {"clave": "valor piel ", "etiqueta": "Valor piel", "tipo": "number"},
+    {"clave": "k. sebo", "etiqueta": "Kilos sebo", "tipo": "number"},
+    {"clave": "valor sebo", "etiqueta": "Valor sebo", "tipo": "number"},
+    {"clave": "retomas", "etiqueta": "Retomas", "tipo": "number"},
+    {"clave": "v.visceras unidad", "etiqueta": "Valor vísceras unidad", "tipo": "number"},
 ]
 
 # Columnas que cada proceso REALMENTE usa/envía (las demás quedan opcionales).
 DATOS_USADAS = {
     "compra_vacuno": [
-        "NIT PROVEEDOR", "FACTURA PROVEEDOR", "LOTE", "LOTE FRIGOAPP",
+        "NIT PROVEEDOR", "LOTE", "LOTE FRIGOAPP",
         "FECHA SACRIFICIO SIESA", "P.PROM FINCA", "P.NETO", "Total a facturar",
     ],
     "compra_porcino": [
@@ -172,6 +183,12 @@ DATOS_USADAS = {
     ],
     "canal_porcino": [
         "LOTE", "TIPO", "FECHA SACRIFICIO SIESA", "PEC(kg)", "total costo tat",
+    ],
+    "retoma_vacuno": [
+        "TIPO", "LOTE", "FECHA SACRIFICIO SIESA", "PESO EN FINCA",
+        "P.NETO", "P.PROM FINCA", "PEC(kg)", "total costo tat",
+        "K. piel", "valor piel ", "k. sebo", "valor sebo",
+        "retomas", "v.visceras unidad",
     ],
     "retoma_porcino": [
         "CONCEPTO", "TIPO", "LOTE", "FECHA SACRIFICIO SIESA",
@@ -189,11 +206,11 @@ DATOS_USADAS = {
     ],
     "doc_pedidos": [
         "NIT CLIENTE ", "SUCURSAL", "REMISION", "FECHA PEDIDO SIESA",
-        "TIPO", "CANTIDAD", "P.VENTA", "LOTE",
+        "FECHA SACRIFICIO SIESA", "TIPO", "FRÍO(kg)", "P.VENTA", "LOTE",
     ],
     "compromisos_pedidos": [
-        "NIT CLIENTE ", "REMISION", "FECHA PEDIDO SIESA", "TIPO",
-        "CANTIDAD", "FRÍO(kg)", "LOTE",
+        "NIT CLIENTE ", "REMISION", "FECHA SACRIFICIO SIESA", "TIPO",
+        "FRÍO(kg)", "LOTE",
     ],
 }
 

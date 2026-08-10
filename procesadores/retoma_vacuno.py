@@ -4,10 +4,8 @@ Portado desde ``4.2A_RETOMA_VACUNO.py``. Genera la entrada de subproductos
 (piel, sebo, retomas y vísceras) tras el sacrificio, en cuatro bloques de
 detalle (registros 470 v12) bajo un mismo encabezado (450).
 
-NOTA: el script de escritorio usaba una variable ``BODEGA_PROCESO`` que no está
-definida en ninguno de los archivos originales (fallaría tal cual). Aquí se usa
-la bodega de subproductos de la empresa (``BODEGA_SUBPRODUCTO`` en la config),
-que es el destino lógico de estos movimientos. Verificar el valor por empresa.
+La bodega de subproductos se toma de la celda 8 de la hoja PARAMETROS
+(``BODEGA_SUBPRODUCTO``), igual que el ejecutable de escritorio.
 """
 
 import os
@@ -28,7 +26,7 @@ CONCEPTO = 601
 
 
 class RetomaVacuno:
-    def __init__(self, excel_path, work_dir, empresa_id, fecha, parametros=None):
+    def __init__(self, excel_path, work_dir, empresa_id, fecha, parametros=None, datos=None):
         self.excel_path = excel_path
         self.work_dir = work_dir
         self.fecha = fecha
@@ -45,15 +43,13 @@ class RetomaVacuno:
                 excel_path, sheet_name="PARAMETROS", dtype={"CO": str, "BODEGA": str})
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
             self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
-            subproducto = siesa.param_por_nombre(self.data2, "SUBPRODUCTO")
-            if subproducto is None:
-                subproducto = self.data2["CODIGO_PARAMETRO"].iloc[2]
-            self.BODEGA_PROCESO = str(int(subproducto))
+            # Bodega de subproductos: celda 8 de PARAMETROS (igual que el ejecutable).
+            self.BODEGA_PROCESO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[8]))
             siesa.validar_empresa(self.CIA, empresa_id)
         self.CIA_CONEXION = str(int(self.CIA))
 
-        self.data1 = pd.read_excel(
-            excel_path, sheet_name="CANAL",
+        self.data1 = siesa.leer_datos_canal(
+            datos, excel_path,
             dtype={"NIT PROVEEDOR": str, "FECHA SACRIFICIO SIESA": str, "LOTE": str},
             skiprows=6,
         )
@@ -72,7 +68,7 @@ class RetomaVacuno:
         self.data1["valor_total_piel"] = 0
         self.map_precios_KG_piel = self.referencias["SIESA_SEBO"].iloc[10]
         self.map_precios_KG_sebo = self.referencias["SIESA_SEBO"].iloc[11]
-        self.data1 = self.data1[self.data1["NIT PROVEEDOR"].notna()]
+        # Filtro NIT desactivado en el ejecutable original.
         self.data1["NUMERO_DOC"] = 0
         for i, _ in self.data1.iterrows():
             self.data1.at[i, "NUMERO_DOC"] = i + 1
@@ -86,9 +82,9 @@ class RetomaVacuno:
         for i, _ in self.data1.iterrows():
             self.data1.at[i, "COSTO_UNITARIO"] = round(self.data1.at[i, "COSTO_UNITARIO"], 2)
         for i, _ in self.data1.iterrows():
-            self.data1.at[i, "COSTO_PIEL"] = self.data1.at[i, "valor piel "] / self.data1.at[i, "PIEL(kg)"]
+            self.data1.at[i, "COSTO_PIEL"] = self.data1.at[i, "valor piel "] / self.data1.at[i, "PEC(kg)"]
         self.data1["COSTO_PIEL"] = round(self.data1["COSTO_PIEL"], 2)
-        self.data1["LOTE"] = self.data1["LOTE.1"]
+        # LOTE.1 desactivado en el ejecutable original.
 
     def _detalle(self, c, ti, bodega, um, cantidad, costo, referencia):
         return (
@@ -204,14 +200,14 @@ class RetomaVacuno:
         self.d0.append(self.trama_final)
 
 
-def procesar(excel_path, work_dir, empresa_id=None, fecha=None, parametros=None):
+def procesar(excel_path, work_dir, empresa_id=None, fecha=None, parametros=None, datos=None):
     """Ejecuta el flujo de Retoma Vacuno y devuelve el resultado."""
     if not empresa_id:
         raise ValueError("Debes seleccionar la empresa.")
     if not fecha:
         raise ValueError("Debes indicar la fecha de sacrificio (AAAAMMDD).")
 
-    proc = RetomaVacuno(excel_path, work_dir, empresa_id, fecha, parametros)
+    proc = RetomaVacuno(excel_path, work_dir, empresa_id, fecha, parametros, datos)
     proc.mapeo_referencias()
     proc.dataframe()
     proc.generar_trama()

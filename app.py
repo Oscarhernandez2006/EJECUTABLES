@@ -139,6 +139,35 @@ PROCESOS = [
         "requiere_empresa": True, "requiere_fecha": True,
         "entradas": [{"clave": "archivo", "etiqueta": "Archivo de análisis", "archivo": "ANALISIS.xlsx"}],
     },
+    # --- Procesos originales (restaurados desde a415d47) ---------------------
+    # No usan selector de empresa ni fecha: leen todo del propio Excel.
+    {
+        "id": "pedidos", "nombre": "Pedidos", "grupo": "Pedidos y Sobrecostos",
+        "descripcion": "Importa pedidos de venta a Siesa.", "hoja": "PEDIDO",
+        "requiere_empresa": False, "requiere_fecha": False,
+        "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"}],
+    },
+    {
+        "id": "requisiciones", "nombre": "Requisiciones", "grupo": "Pedidos y Sobrecostos",
+        "descripcion": "Importa transferencias / requisiciones de inventario.", "hoja": "TRASNFERENCIA",
+        "requiere_empresa": False, "requiere_fecha": False,
+        "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"}],
+    },
+    {
+        "id": "sobrecostos", "nombre": "Sobrecostos", "grupo": "Pedidos y Sobrecostos",
+        "descripcion": "Importa ajustes de sobrecostos a documentos base.", "hoja": "SOBRECOSTOS",
+        "requiere_empresa": False, "requiere_fecha": False,
+        "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"}],
+    },
+    {
+        "id": "transferencia_sc", "nombre": "Transferencia Desposte", "grupo": "Desposte",
+        "descripcion": "Importa la entrada de productos terminados por transferencia de desposte.", "hoja": "DESPOSTE",
+        "requiere_empresa": False, "requiere_fecha": False,
+        "entradas": [
+            {"clave": "desposte", "etiqueta": "Transferencia Desposte", "archivo": "TRANSFERENCIA DESPOSTE.xlsx"},
+            {"clave": "equivalentes", "etiqueta": "Equivalentes", "archivo": "Equivalentes.xlsx"},
+        ],
+    },
 ]
 
 

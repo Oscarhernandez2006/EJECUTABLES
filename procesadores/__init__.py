@@ -23,6 +23,11 @@ from . import (
     impuestos_sacrificio,
     doc_pedidos,
     compromisos_pedidos,
+    # Procesos originales (restaurados desde a415d47).
+    pedidos,
+    requisiciones,
+    sobrecostos,
+    transferencia_sc,
 )
 
 # Mapa de tipos de proceso disponibles para la interfaz.
@@ -40,6 +45,11 @@ PROCESADORES = {
     "impuestos_sacrificio": impuestos_sacrificio,
     "doc_pedidos": doc_pedidos,
     "compromisos_pedidos": compromisos_pedidos,
+    # Procesos originales (restaurados desde a415d47).
+    "pedidos": pedidos,
+    "requisiciones": requisiciones,
+    "sobrecostos": sobrecostos,
+    "transferencia_sc": transferencia_sc,
 }
 
 __all__ = ["PROCESADORES"]

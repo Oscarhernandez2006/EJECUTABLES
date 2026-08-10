@@ -361,7 +361,8 @@ function fechaValida() {
 
 function requisitosCompletos() {
     const p = state.proceso;
-    if (!p || !p.disponible || !state.empresa) return false;
+    if (!p || !p.disponible) return false;
+    if (p.requiere_empresa && !state.empresa) return false;
     if (p.requiere_fecha && !fechaValida()) return false;
     if (state.modo === "manual") {
         return paramsCompletos() && datosCompletos();
@@ -424,8 +425,6 @@ function seleccionarProceso(item) {
     }
 
     soonNote.hidden = true;
-    stepEmpresa.hidden = false;
-    stepDatos.hidden = true;
 
     empresaOptions.querySelectorAll(".empresa-card").forEach((c) => c.classList.remove("is-active"));
 
@@ -435,6 +434,17 @@ function seleccionarProceso(item) {
     renderParamForm(proceso);
     renderDatosTabla(proceso);
     setModo("excel");
+
+    // Procesos sin empresa: se salta el paso 1 y se muestra directo el paso 2.
+    if (proceso.requiere_empresa) {
+        if (btnCambiarEmpresa) btnCambiarEmpresa.hidden = false;
+        stepEmpresa.hidden = false;
+        stepDatos.hidden = true;
+    } else {
+        if (btnCambiarEmpresa) btnCambiarEmpresa.hidden = true;
+        stepEmpresa.hidden = true;
+        stepDatos.hidden = false;
+    }
 }
 
 navItems.forEach((item) => {

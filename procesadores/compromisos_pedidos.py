@@ -57,7 +57,7 @@ class CompromisosPedidos:
         self.data1 = self.data1[self.data1["REMISION"].notna()]
         self.data1["NUMERO_DOC"] = 0
         self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
-        self.data1 = self.data1[self.data1["FECHA PEDIDO SIESA"] == str(self.fecha)]
+        self.data1 = self.data1[self.data1["FECHA SACRIFICIO SIESA"] == str(self.fecha)]
 
     def dataframe2(self):
         self.data1["FRÍO(kg)"] = round(self.data1["FRÍO(kg)"], 2)
@@ -90,7 +90,7 @@ class CompromisosPedidos:
                 + "{:10}".format(" ")
                 + "{:<15}".format(fila["LOTE"])
                 + "{:<4}".format("KG")
-                + "{:0>20.4f}".format(fila["CANTIDAD"])
+                + "{:0>20.4f}".format(fila["FRÍO(kg)"])
                 + "{:0>20.4f}".format(0)
                 + "{:0>10.0f}".format(c - 1)
             )

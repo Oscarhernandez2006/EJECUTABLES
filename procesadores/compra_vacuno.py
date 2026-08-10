@@ -80,11 +80,11 @@ class CompraVacuno:
     def consecutivo_documento(self):
         self.enc_data1 = self.data1.copy()
         self.enc_data1["NUMERO_DOC"] = 0
-        self.enc_data1.drop_duplicates("FACTURA PROVEEDOR", inplace=True)
+        self.enc_data1.drop_duplicates("NIT PROVEEDOR", inplace=True)
         for i, _ in self.enc_data1.iterrows():
             self.enc_data1.at[i, "NUMERO_DOC"] = i + 1
-        map_num_doc = dict(zip(self.enc_data1["FACTURA PROVEEDOR"], self.enc_data1["NUMERO_DOC"]))
-        self.data1["NUMERO_DOC"] = self.data1["FACTURA PROVEEDOR"].map(map_num_doc)
+        map_num_doc = dict(zip(self.enc_data1["NIT PROVEEDOR"], self.enc_data1["NUMERO_DOC"]))
+        self.data1["NUMERO_DOC"] = self.data1["NIT PROVEEDOR"].map(map_num_doc)
 
     def generar_trama(self):
         reg_ini = 1

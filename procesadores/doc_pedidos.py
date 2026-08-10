@@ -67,14 +67,14 @@ class DocPedidos:
         self.data1 = self.data1[self.data1["FECHA PEDIDO SIESA"] == str(self.fecha)]
 
     def dataframe2(self):
-        self.data1["CANTIDAD"] = round(self.data1["CANTIDAD"], 1)
+        self.data1["FRÍO(kg)"] = round(self.data1["FRÍO(kg)"], 1)
         self.data_enc = self.data1.copy()
         self.data_mov = self.data1.copy()
         self.data_enc.drop_duplicates(subset="REMISION", inplace=True)
         self.data_mov = self.data_mov.groupby(["REMISION", "REF"], as_index=False).agg(
-            CANTIDAD=("CANTIDAD", "sum"),
+            CANTIDAD=("FRÍO(kg)", "sum"),
             NIT_CLIENTE=("NIT CLIENTE ", "first"),
-            FECHA=("FECHA PEDIDO SIESA", "first"),
+            FECHA=("FECHA SACRIFICIO SIESA", "first"),
             PRECIO=("P.VENTA", "first"),
         )
 
@@ -102,7 +102,7 @@ class DocPedidos:
                 + "{:3}".format(self.CO)
                 + "{:3}".format(TIPO_DOCUMENTO)
                 + "{:0>8.0f}".format(fila["REMISION"])
-                + "{:8}".format(fila["FECHA PEDIDO SIESA"])
+                + "{:8}".format(self.fecha)
                 + "{:0>3.0f}".format(502)
                 + "{:0>1.0f}".format(2)
                 + "{:0>1.0f}".format(0)
@@ -112,7 +112,7 @@ class DocPedidos:
                 + "{:3}".format(fila["SUCURSAL"])
                 + "{:4}".format(TIPO_CLIENTE)
                 + "{:3}".format(self.CO)
-                + "{:8}".format(fila["FECHA PEDIDO SIESA"])
+                + "{:8}".format(fila["FECHA SACRIFICIO SIESA"])
                 + "{:0>3.0f}".format(3)
                 + "{:15}".format(fila["REMISION"])
                 + "{:10}".format(fila["REMISION"])
@@ -124,7 +124,7 @@ class DocPedidos:
                 + "{:0>13.4f}".format(1)
                 + "{:3}".format(CONDICION_PAGO)
                 + "{:0>1.0f}".format(0)
-                + "{:2000}".format(fila["REMISION"])
+                + "{:2000}".format("Sitio de entrega")
                 + "{:15}".format(" ")
                 + "{:3}".format(PUNTO_ENVIO)
                 + "{:15}".format(" ")
