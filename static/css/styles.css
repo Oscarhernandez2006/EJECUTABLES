@@ -65,23 +65,28 @@ body {
 }
 
 .brand__logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, var(--green-600), var(--green-900));
-    display: grid;
-    place-items: center;
-    color: var(--white);
+    width: auto;
+    height: 42px;
     flex-shrink: 0;
 }
 
-.brand__logo svg { width: 26px; height: 26px; }
+.brand__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
 
 .brand__name {
     font-weight: 700;
-    font-size: 20px;
-    letter-spacing: 0.02em;
+    font-size: 18px;
+    letter-spacing: -0.01em;
     color: var(--gray-800);
+}
+
+.brand__sub {
+    font-size: 11.5px;
+    color: var(--gray-400);
+    font-weight: 500;
 }
 
 .nav { margin-top: 18px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -145,7 +150,7 @@ body {
 }
 
 /* ---------- Main ---------- */
-.main { display: flex; flex-direction: column; }
+.main { display: flex; flex-direction: column; min-width: 0; }
 
 .topbar {
     display: flex;
@@ -173,8 +178,9 @@ body {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    max-width: 820px;
+    max-width: 1400px;
     width: 100%;
+    min-width: 0;
 }
 
 /* ---------- Card ---------- */
@@ -184,6 +190,7 @@ body {
     border-radius: var(--radius);
     padding: 28px;
     box-shadow: var(--shadow-sm);
+    min-width: 0;
 }
 
 .card__header { margin-bottom: 22px; }
@@ -382,3 +389,503 @@ body {
     .sidebar { position: static; height: auto; flex-direction: column; }
     .topbar, .content { padding-left: 20px; padding-right: 20px; }
 }
+
+/* ---------- Sidebar: grupos y estados ---------- */
+.nav { overflow-y: auto; padding-right: 4px; }
+.nav::-webkit-scrollbar { width: 6px; }
+.nav::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
+
+.nav__group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+
+.nav__group-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-400);
+    padding: 8px 14px 4px;
+}
+
+.nav__item { justify-content: space-between; }
+
+.nav__soon {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-400);
+    background: var(--gray-100);
+    padding: 2px 7px;
+    border-radius: 999px;
+}
+
+/* ---------- Selector de empresa ---------- */
+.empresa { margin-bottom: 18px; }
+
+.empresa__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600);
+    margin-bottom: 8px;
+}
+
+.empresa__options { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.empresa__chip {
+    padding: 9px 16px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 999px;
+    background: var(--white);
+    color: var(--gray-600);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.empresa__chip:hover { border-color: var(--green-500); color: var(--green-700); }
+
+.empresa__chip.is-active {
+    background: var(--green-600);
+    border-color: var(--green-600);
+    color: var(--white);
+}
+
+/* ---------- Campo de fecha ---------- */
+.fecha-field { margin-bottom: 18px; }
+
+.fecha-field__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600);
+    margin-bottom: 8px;
+}
+
+.fecha-field__input {
+    width: 220px;
+    max-width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    color: var(--gray-800);
+    transition: border-color 0.16s ease;
+}
+
+.fecha-field__input:focus { outline: none; border-color: var(--green-500); }
+
+/* ---------- Aviso de proceso no disponible ---------- */
+.soon-note {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    background: var(--gray-50);
+    border: 1px dashed var(--gray-200);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--gray-600);
+}
+
+.soon-note__icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--gray-400); }
+
+/* ---------- Bloques (parámetros / registros) ---------- */
+.block-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 12px;
+}
+
+.block-title__icon { width: 17px; height: 17px; color: var(--green-600); }
+
+.param-block { margin-bottom: 20px; }
+
+/* ---------- Tabla de registros manuales ---------- */
+.datos-block { margin-bottom: 20px; min-width: 0; }
+
+.datos-block__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.datos-block__head .block-title { margin-bottom: 0; }
+
+.datos-block__count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600);
+    background: var(--gray-100);
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+.datos-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+}
+
+.datos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.datos-table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--gray-600);
+    background: var(--gray-50);
+    padding: 10px 10px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.datos-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.datos-table tr:last-child td { border-bottom: none; }
+
+.datos-table__acc { width: 44px; text-align: center; }
+
+.datos-input {
+    width: 100%;
+    min-width: 120px;
+    padding: 8px 10px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--gray-800);
+    background: var(--white);
+    transition: border-color 0.16s ease;
+}
+
+.datos-input:focus { outline: none; border-color: var(--green-500); }
+
+/* ---------- Grilla tipo Excel (celdas) ---------- */
+.datos-table__num {
+    width: 42px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+    background: var(--gray-50);
+    border-right: 1px solid var(--gray-200);
+}
+
+.datos-table td {
+    padding: 0;
+    border-right: 1px solid var(--gray-100);
+}
+
+.datos-table th { border-right: 1px solid var(--gray-200); }
+.datos-table td.datos-table__acc { padding: 6px 8px; border-right: none; }
+
+.datos-table .datos-input {
+    min-width: 130px;
+    border: none;
+    border-radius: 0;
+    padding: 9px 10px;
+    background: transparent;
+}
+
+.datos-table .datos-input:focus {
+    outline: 2px solid var(--green-500);
+    outline-offset: -2px;
+    background: var(--green-50);
+    position: relative;
+    z-index: 1;
+}
+
+/* Columnas usadas por el proceso vs. opcionales */
+.datos-table th.is-usado {
+    color: var(--green-700, #15803d);
+    background: var(--green-50);
+    border-bottom: 2px solid var(--green-500);
+}
+.datos-table td.is-usado { background: rgba(34, 197, 94, 0.04); }
+.datos-table th.is-opcional { color: var(--gray-400); }
+.datos-table td.is-opcional .datos-input { color: var(--gray-500); }
+
+/* Toggle "solo usadas": oculta las columnas opcionales */
+.datos-table--solo-usadas .is-opcional { display: none; }
+
+.datos-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 12.5px;
+    color: var(--gray-600);
+    cursor: pointer;
+    user-select: none;
+}
+.datos-toggle input { width: 15px; height: 15px; accent-color: var(--green-500); }
+
+/* Leyenda de color dentro del texto de ayuda */
+.col-legend {
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: 5px;
+    font-weight: 600;
+}
+.col-legend--usada {
+    color: var(--green-700, #15803d);
+    background: var(--green-50);
+}
+
+.datos-remove {
+    width: 32px;
+    height: 32px;
+    display: inline-grid;
+    place-items: center;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--gray-400);
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.datos-remove svg { width: 17px; height: 17px; }
+.datos-remove:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* ---------- Botón fantasma ---------- */
+.btn--ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1.5px dashed var(--gray-200);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--green-700);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.btn--ghost svg { width: 16px; height: 16px; }
+.btn--ghost:hover { border-color: var(--green-500); background: var(--green-50); }
+
+/* ---------- Pasos (cards con número) ---------- */
+.step { margin-bottom: 18px; }
+
+.step__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.step__num {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--green-600);
+    color: var(--white);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.step__change {
+    margin-left: auto;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 6px 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-800);
+    transition: all 0.16s ease;
+}
+
+.step__change:hover { border-color: var(--green-500); color: var(--green-700); }
+.step__change-hint { font-size: 11px; font-weight: 500; color: var(--gray-400); }
+
+/* ---------- Selector de empresa con logos ---------- */
+.empresa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+}
+
+.empresa-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 16px;
+    border: 2px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: var(--white);
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.empresa-card:hover {
+    border-color: var(--green-500);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.empresa-card.is-active {
+    border-color: var(--green-600);
+    background: var(--green-50);
+}
+
+.empresa-card__logo {
+    width: 68px;
+    height: 68px;
+    object-fit: contain;
+}
+
+.empresa-card__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-800);
+    text-align: center;
+}
+
+.empresa-card__check {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--green-600);
+    color: var(--white);
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: all 0.16s ease;
+}
+
+.empresa-card.is-active .empresa-card__check { opacity: 1; transform: scale(1); }
+.empresa-card__check svg { width: 14px; height: 14px; }
+
+/* ---------- Modo de parámetros (Excel / manual) ---------- */
+.modo { margin-bottom: 20px; }
+
+.modo__label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600);
+    margin-bottom: 8px;
+}
+
+.modo__tabs {
+    display: inline-flex;
+    padding: 4px;
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    gap: 4px;
+}
+
+.modo__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--gray-600);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+}
+
+.modo__tab.is-active {
+    background: var(--white);
+    color: var(--green-700);
+    box-shadow: var(--shadow-sm);
+}
+
+.modo__tab-icon { width: 16px; height: 16px; }
+
+.modo__hint {
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: var(--gray-400);
+}
+
+.datos-block__hint {
+    margin-top: 10px;
+    margin-bottom: 18px;
+}
+
+/* ---------- Formulario de parámetros manuales ---------- */
+.param-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+}
+
+.param-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.param-field__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+.param-field__input {
+    padding: 9px 12px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--gray-800);
+    background: var(--white);
+    transition: border-color 0.16s ease;
+}
+
+.param-field__input:focus { outline: none; border-color: var(--green-500); }
+

@@ -9,15 +9,37 @@ Cada módulo expone una función `procesar(excel_path, work_dir)` que:
 Y devuelve un diccionario con el resultado de la ejecución.
 """
 
-from . import pedidos, requisiciones, sobrecostos, cruce_contable, transferencia_sc
+from . import (
+    cruce_contable,
+    compra_vacuno,
+    compra_porcino,
+    cargue_lotes,
+    canal_vacuno,
+    canal_porcino,
+    retoma_vacuno,
+    retoma_porcino,
+    flete_bovino,
+    sacrificio_bovino,
+    impuestos_sacrificio,
+    doc_pedidos,
+    compromisos_pedidos,
+)
 
 # Mapa de tipos de proceso disponibles para la interfaz.
 PROCESADORES = {
-    "pedidos": pedidos,
-    "requisiciones": requisiciones,
-    "sobrecostos": sobrecostos,
+    "compra_vacuno": compra_vacuno,
+    "compra_porcino": compra_porcino,
     "cruce_contable": cruce_contable,
-    "transferencia_sc": transferencia_sc,
+    "cargue_lotes": cargue_lotes,
+    "canal_vacuno": canal_vacuno,
+    "canal_porcino": canal_porcino,
+    "retoma_vacuno": retoma_vacuno,
+    "retoma_porcino": retoma_porcino,
+    "flete_bovino": flete_bovino,
+    "sacrificio_bovino": sacrificio_bovino,
+    "impuestos_sacrificio": impuestos_sacrificio,
+    "doc_pedidos": doc_pedidos,
+    "compromisos_pedidos": compromisos_pedidos,
 }
 
-__all__ = ["pedidos", "requisiciones", "sobrecostos", "cruce_contable", "transferencia_sc", "PROCESADORES"]
+__all__ = ["PROCESADORES"]

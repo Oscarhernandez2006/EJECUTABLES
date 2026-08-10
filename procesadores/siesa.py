@@ -7,11 +7,62 @@ construcción del XML de importación y consumo del servicio SOAP.
 import os
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+import pandas as pd
 import requests
 
 # Endpoint del servicio web de Siesa (común a todos los procesos).
 URL_SERVICIO = "https://wscarnesantacruz.siesacloud.com:8043/wsUNOEE/wsUNOEE.asmx"
 NOMBRE_CONEXION = "UnoEE_Carnesantacruz_Real"
+
+# Raíz del proyecto y archivo de referencias FRIGOAPP -> Siesa (constante entre
+# empresas). Empaquetado junto a la aplicación para procesos que lo requieren
+# (cargue de lotes, canales, retomas, documentos de pedidos).
+RUTA_PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ARCHIVO_REFERENCIAS = os.path.join(RUTA_PROYECTO, "CODIGO SIESA.xlsx")
+
+
+def validar_empresa(cia_excel, empresa_id):
+    """Verifica que la compañía del Excel coincida con la empresa seleccionada.
+
+    Los ejecutables toman la CIA del propio Excel; el selector de empresa de la
+    web actúa como salvaguarda para no procesar el archivo de otra compañía.
+    Lanza ``ValueError`` si no coinciden.
+    """
+    if not empresa_id:
+        return
+    try:
+        cia_norm = str(int(float(cia_excel)))
+    except (TypeError, ValueError):
+        cia_norm = str(cia_excel).strip()
+    if cia_norm != str(empresa_id):
+        raise ValueError(
+            f"El archivo es de la compañía {cia_norm} pero seleccionaste la "
+            f"empresa {empresa_id}. Verifica el archivo o la empresa elegida."
+        )
+
+
+def param_por_nombre(df, texto, col_nombre="PARAMETRO", col_valor="CODIGO_PARAMETRO"):
+    """Busca en la hoja PARAMETROS la fila cuyo nombre contenga ``texto``.
+
+    Devuelve el valor de la columna de código, o ``None`` si no la encuentra.
+    Útil para parámetros que el ejecutable no leía por posición fija.
+    """
+    mask = df[col_nombre].astype(str).str.upper().str.contains(texto.upper(), na=False)
+    filtrado = df[mask]
+    if filtrado.empty:
+        return None
+    return filtrado[col_valor].iloc[0]
+
+
+def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL"):
+    """Devuelve el DataFrame de datos: de registros manuales o del Excel.
+
+    Si ``datos`` (lista de dicts) no es ``None``, construye el DataFrame a
+    partir de esos registros; de lo contrario lee la hoja indicada del Excel.
+    """
+    if datos is not None:
+        return pd.DataFrame(datos)
+    return pd.read_excel(excel_path, sheet_name=sheet, dtype=dtype, skiprows=skiprows)
 
 
 def generar_cons(i, t):

@@ -21,44 +21,50 @@ PASSWORD = os.getenv("SIESA_CRUCE_PASSWORD", "Santacruz2026*")
 
 
 class FacturaCompra:
-    def __init__(self, excel_path, work_dir):
+    def __init__(self, excel_path, work_dir, empresa_id=None, parametros=None, datos=None):
         self.excel_path = excel_path
         self.work_dir = work_dir
 
-        self.data1 = pd.read_excel(
-            excel_path, sheet_name="CANAL",
+        self.data1 = siesa.leer_datos_canal(
+            datos, excel_path,
             dtype={"NIT PROVEEDOR": str, "FECHA SACRIFICIO SIESA": str, "LOTE": str},
             skiprows=6,
-        )
-        self.data2 = pd.read_excel(
-            excel_path, sheet_name="PARAMETROS",
-           # dtype={"CO": str, "BODEGA": str, "UN": str},
-        )
-        self.data3 = pd.read_excel(
-            excel_path, sheet_name="PARAMETROS ITEMS",
-            dtype={"CODIGO_PARAMETRO": str},
         )
 
         # Fecha tomada de la hoja CANAL (primera fila).
         self.fecha = self.data1["FECHA SACRIFICIO SIESA"].iloc[0]
 
-        self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
-        self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
-        self.COMPRADOR = self.data2["CODIGO_PARAMETRO"].iloc[4]
-        self.UN = self.data2["UN"].iloc[5]
+        if parametros:
+            self.CIA = int(empresa_id)
+            self.CO = str(parametros["CO"])
+            self.COMPRADOR = parametros["COMPRADOR"]
+            self.UN = str(parametros["UN"])
+            self.SERVICIO_COMPRA = str(parametros["SERVICIO_COMPRA"])
+            self.AUXLIAR_DB_VACUNO = int(parametros["AUX_DB_VACUNO"])
+            self.AUXLIAR_DB_PORCINO = int(parametros["AUX_DB_PORCINO"])
+            self.AUXILIAR_CR_VACUNO = int(parametros["AUX_CR_VACUNO"])
+            self.AUXILIAR_CR_PORCINO = int(parametros["AUX_CR_PORCINO"])
+        else:
+            self.data2 = pd.read_excel(excel_path, sheet_name="PARAMETROS")
+            self.data3 = pd.read_excel(
+                excel_path, sheet_name="PARAMETROS ITEMS", dtype={"CODIGO_PARAMETRO": str})
+            self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
+            self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
+            self.COMPRADOR = self.data2["CODIGO_PARAMETRO"].iloc[4]
+            self.UN = self.data2["UN"].iloc[5]
+            self.SERVICIO_COMPRA = str(int(self.data3["CODIGO_PARAMETRO"].iloc[0]))
+            self.AUXLIAR_DB_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[13])
+            self.AUXLIAR_DB_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[14])
+            self.AUXILIAR_CR_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[15])
+            self.AUXILIAR_CR_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[16])
+            siesa.validar_empresa(self.CIA, empresa_id)
 
-        self.SERVICIO_COMPRA = str(int(self.data3["CODIGO_PARAMETRO"].iloc[0]))
         self.TIPO_DOCUMENTO = "NI"
         self.MONEDA = "COP"
         self.REFERENCIA = "1678"
         self.TERCERO = "Generico"
-        self.AUXLIAR_DB_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[13])
-        self.AUXLIAR_DB_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[14])
-        self.AUXILIAR_CR_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[15])
-        self.AUXILIAR_CR_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[16])
         self.TERCERO_CRE = "Generico"
         self.d0 = []
-
         self.CIA_CONEXION = str(int(self.CIA))
 
     def dataframe(self):
@@ -156,9 +162,9 @@ class FacturaCompra:
         self.d0.append(self.trama_final)
 
 
-def procesar(excel_path, work_dir):
+def procesar(excel_path, work_dir, empresa_id=None, parametros=None, datos=None):
     """Ejecuta el flujo completo de Cruce Contable y devuelve el resultado."""
-    proc = FacturaCompra(excel_path, work_dir)
+    proc = FacturaCompra(excel_path, work_dir, empresa_id, parametros, datos)
     proc.dataframe()
     proc.generar_trama()
 
