@@ -110,6 +110,19 @@ def procesar(excel_path, work_dir, empresa_id=None, fecha=None, parametros=None,
     proc = CargueLotes(excel_path, work_dir, empresa_id, fecha, parametros, datos)
     proc.mapeo_referencias()
     proc.dataframe()
+    siesa.exigir_datos(
+        proc.data1,
+        f"No hay filas con fecha de sacrificio {fecha} en el archivo. "
+        "Verifica la fecha (AAAAMMDD) o el contenido del archivo.",
+    )
+    # TIPO de canal sin equivalencia en CODIGO SIESA.xlsx: evita enviar "nan" a Siesa.
+    faltantes = proc.data1.loc[proc.data1["REFERENCIA"].isna(), "TIPO"].unique()
+    if len(faltantes):
+        raise ValueError(
+            "No hay referencia Siesa para el/los tipo(s): "
+            + ", ".join(str(t) for t in faltantes)
+            + ". Revisa la tabla FRIGOAPP → SIESA (CODIGO SIESA.xlsx)."
+        )
     proc.generar_trama()
 
     txt_path = os.path.join(work_dir, "Creacion_lotes.txt")

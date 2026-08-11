@@ -10,4 +10,4 @@ docker service update \
   --label-add 'traefik.http.routers.cnx-web.middlewares=cnx-redirect' \
   --label-add 'traefik.http.middlewares.cnx-redirect.redirectscheme.scheme=https' \
   --label-add 'traefik.http.services.cnx.loadbalancer.server.port=5000' \
-  cnx-cnx-wqn7jq
+  cnx-cnx-knbm7l

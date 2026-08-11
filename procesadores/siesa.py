@@ -43,9 +43,31 @@ def validar_empresa(cia_excel, empresa_id):
         cia_norm = str(cia_excel).strip()
     if cia_norm != str(empresa_id):
         raise ValueError(
-            f"El archivo es de la compañía {cia_norm} pero seleccionaste la "
-            f"empresa {empresa_id}. Verifica el archivo o la empresa elegida."
+            f"El archivo pertenece a {_nombre_empresa(cia_norm)} pero seleccionaste "
+            f"{_nombre_empresa(empresa_id)}. Verifica el archivo o la empresa elegida."
         )
+
+
+def _nombre_empresa(cia):
+    """Nombre legible de una compañía por su CIA; cae al número si no está en el catálogo."""
+    try:
+        from config.empresas import obtener_empresa
+        emp = obtener_empresa(str(cia))
+        if emp:
+            return f"{emp['corto']} ({cia})"
+    except Exception:
+        pass
+    return f"la compañía {cia}"
+
+
+def exigir_datos(df, mensaje):
+    """Lanza un ``ValueError`` legible si el DataFrame quedó sin filas.
+
+    Evita tramas vacías (que Siesa rechaza con "No existen datos para procesar")
+    y los ``IndexError`` al leer la primera fila de un archivo/filtro vacío.
+    """
+    if df is None or len(df) == 0:
+        raise ValueError(mensaje)
 
 
 def param_por_nombre(df, texto, col_nombre="PARAMETRO", col_valor="CODIGO_PARAMETRO"):

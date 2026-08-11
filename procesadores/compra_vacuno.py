@@ -62,6 +62,10 @@ class CompraVacuno:
             skiprows=6,
         )
 
+        siesa.exigir_datos(
+            self.data1,
+            "El archivo no tiene filas de datos en la hoja CANAL.",
+        )
         self.PROVEEDOR_FINCA = self.data1["NIT PROVEEDOR"].iloc[0]
         self.LOTE_DOCUMENTO = self.data1["LOTE FRIGOAPP"].iloc[0]
         self.d0 = []
@@ -201,6 +205,11 @@ def procesar(excel_path, work_dir, empresa_id=None, fecha=None, parametros=None,
 
     proc = CompraVacuno(excel_path, work_dir, empresa_id, fecha, parametros, datos)
     proc.dataframe()
+    siesa.exigir_datos(
+        proc.data1,
+        f"No hay filas con fecha de sacrificio {fecha} en el archivo. "
+        "Verifica la fecha (AAAAMMDD) o el contenido del archivo.",
+    )
     proc.consecutivo_documento()
     proc.generar_trama()
 
