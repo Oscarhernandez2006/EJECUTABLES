@@ -16,36 +16,54 @@ PASSWORD = os.getenv("SIESA_PEDIDOS_PASSWORD", "Santacruz2026*")
 
 
 class Ped:
-    def __init__(self, excel_path, work_dir):
+    def __init__(self, excel_path, work_dir, empresa_id=None, parametros=None, hojas=None):
         self.excel_path = excel_path
         self.work_dir = work_dir
 
-        self.Ped = pd.read_excel(
-            excel_path,
-            sheet_name="PEDIDO",
-            dtype={"N.I.T / C.C.": str, "CODIGO": str, "BOD ENTRADA": str,
-                   "BOD SALIDA": str, "SUCURSAL": str},
-            skiprows=2,
-        )
-        self.EQUIVALENCIA = pd.read_excel(
-            excel_path, sheet_name="EQUIVALENTES",
-            dtype={"CODIGO": str, "REF_SIESA": str}, skiprows=1,
-        )
-        self.data2 = pd.read_excel(
-            excel_path, sheet_name="PARAMETROS",
-            dtype={"CODIGO_PARAMETRO": str, "REF_SIESA": str}, skiprows=1,
-        )
-        self.d0 = []
+        if parametros:
+            # Modo manual por hojas: las tablas y parámetros vienen escritos.
+            self.Ped = siesa.hoja_df(hojas, "PEDIDO", dtype={
+                "N.I.T / C.C.": str, "CODIGO": str, "BOD ENTRADA": str,
+                "BOD SALIDA": str, "SUCURSAL": str})
+            self.EQUIVALENCIA = siesa.hoja_df(hojas, "EQUIVALENTES", dtype={"CODIGO": str, "REF_SIESA": str})
+            self.d0 = []
+            self.CIA = empresa_id
+            self.CO = parametros["CO"]
+            self.TERCERO = parametros["TERCERO"]
+            self.SOLICITANTE = parametros["SOLICITANTE"]
+            self.UN = parametros["UN"]
+            self.CCOSTOS = parametros["CCOSTOS"]
+            self.FECHA = parametros["FECHA"]
+            self.VENDEDOR = parametros["VENDEDOR"]
+            self.LISTA_PRECIO = parametros["LISTA_PRECIO"]
+        else:
+            self.Ped = pd.read_excel(
+                excel_path,
+                sheet_name="PEDIDO",
+                dtype={"N.I.T / C.C.": str, "CODIGO": str, "BOD ENTRADA": str,
+                       "BOD SALIDA": str, "SUCURSAL": str},
+                skiprows=2,
+            )
+            self.EQUIVALENCIA = pd.read_excel(
+                excel_path, sheet_name="EQUIVALENTES",
+                dtype={"CODIGO": str, "REF_SIESA": str}, skiprows=1,
+            )
+            self.data2 = pd.read_excel(
+                excel_path, sheet_name="PARAMETROS",
+                dtype={"CODIGO_PARAMETRO": str, "REF_SIESA": str}, skiprows=1,
+            )
+            self.d0 = []
 
-        self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
-        self.CO = self.data2["CODIGO_PARAMETRO"].iloc[1]
-        self.TERCERO = self.data2["CODIGO_PARAMETRO"].iloc[2]
-        self.SOLICITANTE = self.data2["CODIGO_PARAMETRO"].iloc[3]
-        self.UN = self.data2["CODIGO_PARAMETRO"].iloc[4]
-        self.CCOSTOS = self.data2["CODIGO_PARAMETRO"].iloc[5]
-        self.FECHA = self.data2["CODIGO_PARAMETRO"].iloc[6]
-        self.VENDEDOR = self.data2["CODIGO_PARAMETRO"].iloc[7]
-        self.LISTA_PRECIO = self.data2["CODIGO_PARAMETRO"].iloc[8]
+            # La compañía la fija el selector de empresa (no el Excel).
+            self.CIA = empresa_id or self.data2["CODIGO_PARAMETRO"].iloc[0]
+            self.CO = self.data2["CODIGO_PARAMETRO"].iloc[1]
+            self.TERCERO = self.data2["CODIGO_PARAMETRO"].iloc[2]
+            self.SOLICITANTE = self.data2["CODIGO_PARAMETRO"].iloc[3]
+            self.UN = self.data2["CODIGO_PARAMETRO"].iloc[4]
+            self.CCOSTOS = self.data2["CODIGO_PARAMETRO"].iloc[5]
+            self.FECHA = self.data2["CODIGO_PARAMETRO"].iloc[6]
+            self.VENDEDOR = self.data2["CODIGO_PARAMETRO"].iloc[7]
+            self.LISTA_PRECIO = self.data2["CODIGO_PARAMETRO"].iloc[8]
 
         self.MOTIVO = "01"
         self.TIPO_DOC = "1PV"
@@ -172,9 +190,9 @@ class Ped:
         self.d0.append(self.trama_final)
 
 
-def procesar(excel_path, work_dir):
+def procesar(excel_path, work_dir, empresa_id=None, parametros=None, hojas=None):
     """Ejecuta el flujo completo de Pedidos y devuelve el resultado."""
-    proc = Ped(excel_path, work_dir)
+    proc = Ped(excel_path, work_dir, empresa_id, parametros, hojas)
     proc.crear_dataframes()
     proc.generar_trama()
 

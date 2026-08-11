@@ -23,6 +23,7 @@ from config import (
     empresa_valida,
     esquema_de,
     datos_esquema_de,
+    hojas_manuales_de,
     admite_parametros_manuales,
 )
 
@@ -144,25 +145,25 @@ PROCESOS = [
     {
         "id": "pedidos", "nombre": "Pedidos", "grupo": "Pedidos y Sobrecostos",
         "descripcion": "Importa pedidos de venta a Siesa.", "hoja": "PEDIDO",
-        "requiere_empresa": False, "requiere_fecha": False,
+        "requiere_empresa": True, "requiere_fecha": False,
         "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"}],
     },
     {
         "id": "requisiciones", "nombre": "Requisiciones", "grupo": "Pedidos y Sobrecostos",
         "descripcion": "Importa transferencias / requisiciones de inventario.", "hoja": "TRASNFERENCIA",
-        "requiere_empresa": False, "requiere_fecha": False,
+        "requiere_empresa": True, "requiere_fecha": False,
         "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"}],
     },
     {
         "id": "sobrecostos", "nombre": "Sobrecostos", "grupo": "Pedidos y Sobrecostos",
         "descripcion": "Importa ajustes de sobrecostos a documentos base.", "hoja": "SOBRECOSTOS",
-        "requiere_empresa": False, "requiere_fecha": False,
+        "requiere_empresa": True, "requiere_fecha": False,
         "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PEDIDOS-SOBRECOSTOS.xlsx"}],
     },
     {
         "id": "transferencia_sc", "nombre": "Transferencia Desposte", "grupo": "Desposte",
         "descripcion": "Importa la entrada de productos terminados por transferencia de desposte.", "hoja": "DESPOSTE",
-        "requiere_empresa": False, "requiere_fecha": False,
+        "requiere_empresa": True, "requiere_fecha": False,
         "entradas": [
             {"clave": "desposte", "etiqueta": "Transferencia Desposte", "archivo": "TRANSFERENCIA DESPOSTE.xlsx"},
             {"clave": "equivalentes", "etiqueta": "Equivalentes", "archivo": "Equivalentes.xlsx"},
@@ -177,6 +178,7 @@ def _marcar_disponibilidad(procesos):
         p["disponible"] = p["id"] in PROCESADORES
         p["esquema_parametros"] = esquema_de(p["id"])
         p["esquema_datos"] = datos_esquema_de(p["id"])
+        p["hojas_manuales"] = hojas_manuales_de(p["id"])
         p["admite_manual"] = admite_parametros_manuales(p["id"])
     return procesos
 
@@ -235,7 +237,7 @@ def _mensaje_amigable(exc):
     return f"{tipo}: {texto}"
 
 
-def _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos):
+def _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos, hojas=None):
     """Invoca ``modulo.procesar`` pasando solo los argumentos que acepta."""
     params = inspect.signature(modulo.procesar).parameters
     kwargs = {}
@@ -247,14 +249,16 @@ def _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros,
         kwargs["parametros"] = parametros
     if "datos" in params:
         kwargs["datos"] = datos
+    if "hojas" in params:
+        kwargs["hojas"] = hojas
     return modulo.procesar(entrada, work_dir, **kwargs)
 
 
-def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, datos):
+def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, datos, hojas=None):
     """Ejecuta un procesador y devuelve la respuesta JSON de Flask."""
     with tempfile.TemporaryDirectory(prefix="siesa_") as work_dir:
         try:
-            resultado = _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos)
+            resultado = _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos, hojas)
         except Exception as exc:  # noqa: BLE001 - se reporta al usuario
             detalle = traceback.format_exc()
             app.logger.error("Error procesando %s: %s", tipo, detalle)
@@ -334,36 +338,70 @@ def procesar(tipo):
                 "mensaje": "Faltan parámetros: " + ", ".join(faltan_campos) + ".",
             }), 400
 
-        # Registros de datos escritos a mano (uno o varios).
-        esquema_datos = datos_esquema_de(tipo)
-        try:
-            registros = json.loads(request.form.get("datos") or "[]")
-        except ValueError:
-            return jsonify({"ok": False, "mensaje": "Los registros de datos no son válidos."}), 400
-        if not isinstance(registros, list) or not registros:
-            return jsonify({"ok": False, "mensaje": "Agrega al menos un registro de datos."}), 400
+        # Datos escritos a mano: por hojas (varias tablas) o grilla única (CANAL).
+        datos = None
+        hojas = None
+        hojas_esq = hojas_manuales_de(tipo)
+        if hojas_esq:
+            try:
+                hojas_raw = json.loads(request.form.get("hojas") or "{}")
+            except ValueError:
+                return jsonify({"ok": False, "mensaje": "Las tablas no son válidas."}), 400
+            if not isinstance(hojas_raw, dict):
+                hojas_raw = {}
+            hojas = {}
+            for hoja in hojas_esq:
+                registros = hojas_raw.get(hoja["clave"], []) or []
+                filas = []
+                for idx, reg in enumerate(registros, start=1):
+                    valores = {c["clave"]: str(reg.get(c["clave"], "")).strip() for c in hoja["columnas"]}
+                    if all(v == "" for v in valores.values()):
+                        continue  # fila totalmente vacía: se ignora
+                    fila = {}
+                    for c in hoja["columnas"]:
+                        valor = valores[c["clave"]]
+                        if valor == "":
+                            return jsonify({"ok": False, "mensaje": f"{hoja['nombre']} · fila {idx}: falta '{c['etiqueta']}'."}), 400
+                        if c["tipo"] == "number":
+                            try:
+                                valor = float(valor)
+                            except ValueError:
+                                return jsonify({"ok": False, "mensaje": f"{hoja['nombre']} · fila {idx}: '{c['etiqueta']}' debe ser numérico."}), 400
+                        fila[c["clave"]] = valor
+                    filas.append(fila)
+                hojas[hoja["clave"]] = filas
+            if not hojas.get(hojas_esq[0]["clave"]):
+                return jsonify({"ok": False, "mensaje": f"Agrega al menos una fila en '{hojas_esq[0]['nombre']}'."}), 400
+        else:
+            esquema_datos = datos_esquema_de(tipo)
+            try:
+                registros = json.loads(request.form.get("datos") or "[]")
+            except ValueError:
+                return jsonify({"ok": False, "mensaje": "Los registros de datos no son válidos."}), 400
+            if not isinstance(registros, list) or not registros:
+                return jsonify({"ok": False, "mensaje": "Agrega al menos un registro de datos."}), 400
 
-        datos = []
-        for idx, reg in enumerate(registros, start=1):
-            fila = {}
-            for campo in esquema_datos:
-                valor = str(reg.get(campo["clave"], "")).strip()
-                if valor == "":
-                    # Solo son obligatorias las columnas que el proceso usa/envía.
-                    if campo.get("usado"):
-                        return jsonify({"ok": False, "mensaje": f"Registro {idx}: falta '{campo['etiqueta']}'."}), 400
-                    continue  # columna opcional vacía: se omite
-                if campo["tipo"] == "number":
-                    try:
-                        valor = float(valor)
-                    except ValueError:
-                        return jsonify({"ok": False, "mensaje": f"Registro {idx}: '{campo['etiqueta']}' debe ser numérico."}), 400
-                fila[campo["clave"]] = valor
-            datos.append(fila)
+            datos = []
+            for idx, reg in enumerate(registros, start=1):
+                fila = {}
+                for campo in esquema_datos:
+                    valor = str(reg.get(campo["clave"], "")).strip()
+                    if valor == "":
+                        # Solo son obligatorias las columnas que el proceso usa/envía.
+                        if campo.get("usado"):
+                            return jsonify({"ok": False, "mensaje": f"Registro {idx}: falta '{campo['etiqueta']}'."}), 400
+                        continue  # columna opcional vacía: se omite
+                    if campo["tipo"] == "number":
+                        try:
+                            valor = float(valor)
+                        except ValueError:
+                            return jsonify({"ok": False, "mensaje": f"Registro {idx}: '{campo['etiqueta']}' debe ser numérico."}), 400
+                    fila[campo["clave"]] = valor
+                datos.append(fila)
 
     # En modo manual no se sube Excel: se procesa directamente con los datos.
     if modo == "manual":
-        return _ejecutar_proceso(modulo, tipo, None, empresa_id, fecha, parametros, datos)
+        return _ejecutar_proceso(modulo, tipo, None, empresa_id, fecha, parametros, datos, hojas)
 
     entradas = proceso["entradas"]
 

@@ -14,21 +14,35 @@ from . import siesa
 
 class Doc:
 
-    def __init__(self, ruta_desposte, ruta_equivalentes, work_dir):
+    def __init__(self, ruta_desposte, ruta_equivalentes, work_dir, empresa_id=None, parametros=None, hojas=None):
         self.work_dir = work_dir
 
-        self.mov = pd.read_excel(ruta_desposte, sheet_name='DESPOSTE', dtype={'LOTE': str,
-        'BODEGA ORIGEN': str, 'BODEGA DESTINO': str}, skiprows=2)
-        self.equivalencias = pd.read_excel(ruta_equivalentes, sheet_name='EQUIVALENTES', dtype={'REF_SIESA': str})
-        self.parametros = pd.read_excel(ruta_equivalentes, sheet_name='PARAMETROS', dtype={'CODIGO_PARAMETRO': str}, skiprows=1)
+        if parametros:
+            self.mov = siesa.hoja_df(hojas, "DESPOSTE", dtype={
+                'LOTE': str, 'BODEGA ORIGEN': str, 'BODEGA DESTINO': str})
+            self.equivalencias = siesa.hoja_df(hojas, "EQUIVALENTES", dtype={'REF_SIESA': str})
+            self.d0 = []
+            self.cia = empresa_id
+            self.CIA = empresa_id
+            self.un = parametros["UN"]
+            self.CO = parametros["CO"]
+            self.TIPO_DOC = parametros["TIPO_DOC"]
+            self.fecha = parametros["FECHA"]
+        else:
+            self.mov = pd.read_excel(ruta_desposte, sheet_name='DESPOSTE', dtype={'LOTE': str,
+            'BODEGA ORIGEN': str, 'BODEGA DESTINO': str}, skiprows=2)
+            self.equivalencias = pd.read_excel(ruta_equivalentes, sheet_name='EQUIVALENTES', dtype={'REF_SIESA': str})
+            self.parametros = pd.read_excel(ruta_equivalentes, sheet_name='PARAMETROS', dtype={'CODIGO_PARAMETRO': str}, skiprows=1)
 
-        self.d0                 = []
-        self.cia                = self.parametros['CODIGO_PARAMETRO'].iloc[0]
-        self.CIA                = self.parametros['CODIGO_PARAMETRO'].iloc[0]
-        self.un                 = self.parametros['CODIGO_PARAMETRO'].iloc[4]
-        self.CO                 = self.parametros['CODIGO_PARAMETRO'].iloc[1]
-        self.TIPO_DOC           = self.parametros['CODIGO_PARAMETRO'].iloc[11]
-        self.fecha              = self.parametros['CODIGO_PARAMETRO'].iloc[6]
+            self.d0                 = []
+            # La compañía la fija el selector de empresa (no el Excel).
+            self.cia                = empresa_id or self.parametros['CODIGO_PARAMETRO'].iloc[0]
+            self.CIA                = empresa_id or self.parametros['CODIGO_PARAMETRO'].iloc[0]
+            self.un                 = self.parametros['CODIGO_PARAMETRO'].iloc[4]
+            self.CO                 = self.parametros['CODIGO_PARAMETRO'].iloc[1]
+            self.TIPO_DOC           = self.parametros['CODIGO_PARAMETRO'].iloc[11]
+            self.fecha              = self.parametros['CODIGO_PARAMETRO'].iloc[6]
+
         self.tercero            =' '         #   cambiar por le nit de la empresa
         self.clase_doc          = 67           #   61 para entrada y 62 para salida
         self.concepto           = 607              #   601 para entrada Y 602 para salida
@@ -162,13 +176,16 @@ class Doc:
         self.d0.append(self.trama_final)
 
 
-def procesar(rutas, work_dir):
+def procesar(rutas, work_dir, empresa_id=None, parametros=None, hojas=None):
     """Ejecuta el flujo completo de Transferencia Desposte y devuelve el resultado.
 
     ``rutas`` es un diccionario con las claves 'desposte' y 'equivalentes',
     cada una apuntando al Excel cargado correspondiente.
     """
-    proc = Doc(rutas["desposte"], rutas["equivalentes"], work_dir)
+    if parametros:
+        proc = Doc(None, None, work_dir, empresa_id, parametros, hojas)
+    else:
+        proc = Doc(rutas["desposte"], rutas["equivalentes"], work_dir, empresa_id)
     proc.dataframe()
     proc.consecutivo_reg()
     proc.generar_trama()

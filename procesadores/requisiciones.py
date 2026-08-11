@@ -16,32 +16,47 @@ PASSWORD = os.getenv("SIESA_REQUISICIONES_PASSWORD", "Santacruz2026*")
 
 
 class Req:
-    def __init__(self, excel_path, work_dir):
+    def __init__(self, excel_path, work_dir, empresa_id=None, parametros=None, hojas=None):
         self.excel_path = excel_path
         self.work_dir = work_dir
 
-        self.Req = pd.read_excel(
-            excel_path, sheet_name="TRASNFERENCIA",
-            dtype={"N.I.T / C.C.": str, "CODIGO": str, "BOD ENTRADA": str, "BOD SALIDA": str},
-        )
-        self.EQUIVALENCIA = pd.read_excel(
-            excel_path, sheet_name="EQUIVALENTES",
-            dtype={"CODIGO": str, "REF_SIESA": str}, skiprows=1,
-        )
-        self.data2 = pd.read_excel(
-            excel_path, sheet_name="PARAMETROS",
-            dtype={"CODIGO_PARAMETRO": str, "REF_SIESA": str}, skiprows=1,
-        )
-        self.d0 = []
+        if parametros:
+            self.Req = siesa.hoja_df(hojas, "TRASNFERENCIA", dtype={
+                "N.I.T / C.C.": str, "CODIGO": str, "BOD ENTRADA": str, "BOD SALIDA": str})
+            self.EQUIVALENCIA = siesa.hoja_df(hojas, "EQUIVALENTES", dtype={"CODIGO": str, "REF_SIESA": str})
+            self.d0 = []
+            self.CIA = empresa_id
+            self.CO = parametros["CO"]
+            self.TERCERO = parametros["TERCERO"]
+            self.SOLICITANTE = parametros["SOLICITANTE"]
+            self.UN = parametros["UN"]
+            self.CCOSTOS = parametros["CCOSTOS"]
+            self.FECHA = parametros["FECHA"]
+            self.CO_SALIDA = parametros["CO_SALIDA"]
+        else:
+            self.Req = pd.read_excel(
+                excel_path, sheet_name="TRASNFERENCIA",
+                dtype={"N.I.T / C.C.": str, "CODIGO": str, "BOD ENTRADA": str, "BOD SALIDA": str},
+            )
+            self.EQUIVALENCIA = pd.read_excel(
+                excel_path, sheet_name="EQUIVALENTES",
+                dtype={"CODIGO": str, "REF_SIESA": str}, skiprows=1,
+            )
+            self.data2 = pd.read_excel(
+                excel_path, sheet_name="PARAMETROS",
+                dtype={"CODIGO_PARAMETRO": str, "REF_SIESA": str}, skiprows=1,
+            )
+            self.d0 = []
 
-        self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
-        self.CO = self.data2["CODIGO_PARAMETRO"].iloc[1]
-        self.TERCERO = self.data2["CODIGO_PARAMETRO"].iloc[2]
-        self.SOLICITANTE = self.data2["CODIGO_PARAMETRO"].iloc[3]
-        self.UN = self.data2["CODIGO_PARAMETRO"].iloc[4]
-        self.CCOSTOS = self.data2["CODIGO_PARAMETRO"].iloc[5]
-        self.FECHA = self.data2["CODIGO_PARAMETRO"].iloc[6]
-        self.CO_SALIDA = self.data2["CODIGO_PARAMETRO"].iloc[10]
+            # La compañía la fija el selector de empresa (no el Excel).
+            self.CIA = empresa_id or self.data2["CODIGO_PARAMETRO"].iloc[0]
+            self.CO = self.data2["CODIGO_PARAMETRO"].iloc[1]
+            self.TERCERO = self.data2["CODIGO_PARAMETRO"].iloc[2]
+            self.SOLICITANTE = self.data2["CODIGO_PARAMETRO"].iloc[3]
+            self.UN = self.data2["CODIGO_PARAMETRO"].iloc[4]
+            self.CCOSTOS = self.data2["CODIGO_PARAMETRO"].iloc[5]
+            self.FECHA = self.data2["CODIGO_PARAMETRO"].iloc[6]
+            self.CO_SALIDA = self.data2["CODIGO_PARAMETRO"].iloc[10]
 
         self.MOTIVO = "02"
         self.TIPO_DOC = "RQI"
@@ -132,9 +147,9 @@ class Req:
         self.d0.append(self.trama_final)
 
 
-def procesar(excel_path, work_dir):
+def procesar(excel_path, work_dir, empresa_id=None, parametros=None, hojas=None):
     """Ejecuta el flujo completo de Requisiciones y devuelve el resultado."""
-    proc = Req(excel_path, work_dir)
+    proc = Req(excel_path, work_dir, empresa_id, parametros, hojas)
     proc.crear_dataframes()
     proc.generar_trama()
 

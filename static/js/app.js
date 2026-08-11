@@ -37,6 +37,7 @@ const modoHint = document.getElementById("modoHint");
 const paramForm = document.getElementById("paramForm");
 const paramBlock = document.getElementById("paramBlock");
 const datosBlock = document.getElementById("datosBlock");
+const hojasBlock = document.getElementById("hojasBlock");
 const datosHead = document.getElementById("datosHead");
 const datosBody = document.getElementById("datosBody");
 const datosTable = document.getElementById("datosTable");
@@ -349,6 +350,151 @@ function datosCompletos() {
 if (btnAddRegistro) btnAddRegistro.addEventListener("click", agregarRegistro);
 if (toggleSoloUsadas) toggleSoloUsadas.addEventListener("change", aplicarFiltroColumnas);
 
+// ---------- Modo por HOJAS: varias tablas apiladas (Pedidos/Sobrecostos/...) ----------
+function tieneHojas() {
+    return Array.isArray(state.proceso && state.proceso.hojas_manuales) && state.proceso.hojas_manuales.length > 0;
+}
+
+function renderHojas(proceso) {
+    state.hojasData = {};
+    hojasBlock.innerHTML = "";
+    (proceso.hojas_manuales || []).forEach((hoja) => {
+        state.hojasData[hoja.clave] = [{}];
+        const sec = document.createElement("div");
+        sec.className = "datos-block hoja-tabla";
+
+        const head = document.createElement("div");
+        head.className = "datos-block__head";
+        head.innerHTML =
+            '<h3 class="block-title"><svg class="block-title__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+            '<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>' +
+            hoja.nombre + "</h3>";
+        sec.appendChild(head);
+
+        const hint = document.createElement("p");
+        hint.className = "modo__hint datos-block__hint";
+        hint.textContent = "Copia el rango desde Excel y p\u00e9galo aqu\u00ed (empezando en la primera columna).";
+        sec.appendChild(hint);
+
+        const wrap = document.createElement("div");
+        wrap.className = "datos-table-wrap";
+        const table = document.createElement("table");
+        table.className = "datos-table";
+        const thead = document.createElement("thead");
+        const trh = document.createElement("tr");
+        const thNum = document.createElement("th");
+        thNum.className = "datos-table__num";
+        thNum.textContent = "#";
+        trh.appendChild(thNum);
+        hoja.columnas.forEach((c) => {
+            const th = document.createElement("th");
+            th.textContent = c.etiqueta;
+            trh.appendChild(th);
+        });
+        trh.appendChild(document.createElement("th"));
+        thead.appendChild(trh);
+        const tbody = document.createElement("tbody");
+        table.appendChild(thead);
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        sec.appendChild(wrap);
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn--ghost";
+        btn.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg> Agregar fila';
+        btn.addEventListener("click", () => {
+            state.hojasData[hoja.clave].push({});
+            renderCuerpoHoja(hoja, tbody);
+            actualizarBotonEjecutar();
+        });
+        sec.appendChild(btn);
+
+        hojasBlock.appendChild(sec);
+        renderCuerpoHoja(hoja, tbody);
+    });
+}
+
+function renderCuerpoHoja(hoja, tbody) {
+    tbody.innerHTML = "";
+    state.hojasData[hoja.clave].forEach((fila, i) =>
+        tbody.appendChild(pintarFilaHoja(hoja, fila, i, tbody))
+    );
+}
+
+function pintarFilaHoja(hoja, fila, indice, tbody) {
+    const tr = document.createElement("tr");
+    const tdNum = document.createElement("td");
+    tdNum.className = "datos-table__num";
+    tdNum.textContent = indice + 1;
+    tr.appendChild(tdNum);
+
+    hoja.columnas.forEach((campo, col) => {
+        const td = document.createElement("td");
+        const inp = document.createElement("input");
+        inp.className = "datos-input";
+        inp.type = "text";
+        if (campo.tipo === "number") inp.inputMode = "decimal";
+        inp.value = fila[campo.clave] ?? "";
+        inp.addEventListener("input", () => {
+            fila[campo.clave] = inp.value;
+            actualizarBotonEjecutar();
+        });
+        inp.addEventListener("paste", (e) => pegarHoja(e, hoja, indice, col, tbody));
+        td.appendChild(inp);
+        tr.appendChild(td);
+    });
+
+    const tdAcc = document.createElement("td");
+    tdAcc.className = "datos-table__acc";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "datos-remove";
+    btn.title = "Quitar fila";
+    btn.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 7h12M9 7V5h6v2M10 11v6M14 11v6M7 7l1 12a1 1 0 001 1h6a1 1 0 001-1l1-12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    btn.addEventListener("click", () => {
+        const arr = state.hojasData[hoja.clave];
+        arr.splice(indice, 1);
+        if (arr.length === 0) arr.push({});
+        renderCuerpoHoja(hoja, tbody);
+        actualizarBotonEjecutar();
+    });
+    tdAcc.appendChild(btn);
+    tr.appendChild(tdAcc);
+    return tr;
+}
+
+function pegarHoja(e, hoja, row, col, tbody) {
+    const texto = (e.clipboardData || window.clipboardData).getData("text");
+    if (!texto || (!texto.includes("\t") && !texto.includes("\n"))) return;
+    e.preventDefault();
+    const arr = state.hojasData[hoja.clave];
+    const filas = texto.replace(/\r/g, "").split("\n");
+    if (filas.length && filas[filas.length - 1] === "") filas.pop();
+    filas.forEach((linea, r) => {
+        const destino = row + r;
+        while (destino >= arr.length) arr.push({});
+        linea.split("\t").forEach((val, c) => {
+            const campo = hoja.columnas[col + c];
+            if (campo) arr[destino][campo.clave] = val.trim();
+        });
+    });
+    renderCuerpoHoja(hoja, tbody);
+    actualizarBotonEjecutar();
+}
+
+function hojasCompletas() {
+    if (!tieneHojas()) return true;
+    const principal = state.proceso.hojas_manuales[0];
+    const filas = (state.hojasData || {})[principal.clave] || [];
+    return filas.some((fila) =>
+        principal.columnas.every((c) => String(fila[c.clave] ?? "").trim().length > 0)
+    );
+}
+
+
 // ---------- Requisitos ----------
 function archivosCompletos() {
     if (!state.proceso) return false;
@@ -365,7 +511,7 @@ function requisitosCompletos() {
     if (p.requiere_empresa && !state.empresa) return false;
     if (p.requiere_fecha && !fechaValida()) return false;
     if (state.modo === "manual") {
-        return paramsCompletos() && datosCompletos();
+        return paramsCompletos() && (tieneHojas() ? hojasCompletas() : datosCompletos());
     }
     return archivosCompletos();
 }
@@ -383,10 +529,12 @@ function setModo(modo) {
 
     const manual = modo === "manual";
     const tieneParams = (state.proceso.esquema_parametros || []).length > 0;
+    const hojas = tieneHojas();
 
-    // En manual: parámetros + registros, sin Excel. En excel: solo carga de archivo.
+    // En manual: parámetros + tabla(s), sin Excel. En excel: solo carga de archivo.
     paramBlock.hidden = !(manual && tieneParams);
-    datosBlock.hidden = !manual;
+    datosBlock.hidden = !(manual && !hojas);
+    hojasBlock.hidden = !(manual && hojas);
     entradasContainer.hidden = manual;
 
     modoHint.textContent = manual
@@ -433,6 +581,7 @@ function seleccionarProceso(item) {
     renderEntradas(proceso);
     renderParamForm(proceso);
     renderDatosTabla(proceso);
+    renderHojas(proceso);
     setModo("excel");
 
     // Procesos sin empresa: se salta el paso 1 y se muestra directo el paso 2.
@@ -511,7 +660,7 @@ function mostrarResultado(exito, titulo, mensaje, meta = "", respuesta = "", opc
     }
 
     if (respuesta) {
-        resultRaw.textContent = respuesta;
+        resultRaw.textContent = formatearRespuesta(respuesta);
         resultDetails.hidden = false;
         resultDetails.open = Boolean(opciones.abrirDetalle);
     } else {
@@ -519,6 +668,15 @@ function mostrarResultado(exito, titulo, mensaje, meta = "", respuesta = "", opc
     }
 
     resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/** Separa las etiquetas del SOAP/XML en líneas para que el detalle sea legible. */
+function formatearRespuesta(texto) {
+    if (!texto) return "";
+    if (texto.includes("</") || texto.includes("/>")) {
+        return texto.replace(/>\s*</g, ">\n<").trim();
+    }
+    return texto;
 }
 
 // ---------- Descarga de la trama ----------
@@ -588,7 +746,11 @@ function ejecutar() {
         Object.entries(state.params).forEach(([clave, valor]) => {
             formData.append(`param_${clave}`, valor);
         });
-        formData.append("datos", JSON.stringify(state.registros));
+        if (tieneHojas()) {
+            formData.append("hojas", JSON.stringify(state.hojasData || {}));
+        } else {
+            formData.append("datos", JSON.stringify(state.registros));
+        }
     } else {
         state.proceso.entradas.forEach((entrada) => {
             formData.append(entrada.clave, state.archivos[entrada.clave]);

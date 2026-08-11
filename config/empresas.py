@@ -6,10 +6,13 @@ comportamiento de cada proceso entre una empresa y otra.
 """
 
 # Empresas disponibles. El id corresponde al código de compañía (CIA) en Siesa.
+# ``logo`` es el archivo en static/img: Agropecuaria usa el suyo; las demás
+# comparten el logo de Carnes Santacruz.
 EMPRESAS = [
-    {"id": "3", "nombre": "AGROPECUARIA SANTACRUZ", "corto": "Agropecuaria"},
-    {"id": "8", "nombre": "CARNES FRIAS SANTACRUZ", "corto": "Carnes Frías"},
-    {"id": "4", "nombre": "CARNES SANTACRUZ", "corto": "Carnes Santacruz"},
+    {"id": "3", "nombre": "AGROPECUARIA SANTACRUZ", "corto": "Agropecuaria", "logo": "empresa-3.png"},
+    {"id": "4", "nombre": "CARNES SANTACRUZ", "corto": "Carnes Santacruz", "logo": "empresa-4.png"},
+    {"id": "6", "nombre": "CRISTIAN SERRANO", "corto": "Cristian Serrano", "logo": "empresa-4.png"},
+    {"id": "7", "nombre": "INVERSIONES SERUEDA S.A.S", "corto": "Inversiones Serueda", "logo": "empresa-4.png"},
 ]
 
 EMPRESA_IDS = [e["id"] for e in EMPRESAS]

@@ -76,6 +76,44 @@ PARAMETROS_ESQUEMA = {
     "cargue_lotes": [],
     "doc_pedidos": [],
     "compromisos_pedidos": [],
+    # Procesos por hojas (Pedidos/Requisiciones/Sobrecostos/Transferencia).
+    # La CIA sale del selector; el resto se leía por posición de la hoja PARAMETROS.
+    "pedidos": [
+        {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
+        {"clave": "TERCERO", "etiqueta": "Tercero", "tipo": "text"},
+        {"clave": "SOLICITANTE", "etiqueta": "Solicitante", "tipo": "text"},
+        {"clave": "UN", "etiqueta": "Unidad de negocio (UN)", "tipo": "text"},
+        {"clave": "CCOSTOS", "etiqueta": "Centro de costos", "tipo": "text"},
+        {"clave": "FECHA", "etiqueta": "Fecha (AAAAMMDD)", "tipo": "text"},
+        {"clave": "VENDEDOR", "etiqueta": "Vendedor", "tipo": "text"},
+        {"clave": "LISTA_PRECIO", "etiqueta": "Lista de precio", "tipo": "text"},
+    ],
+    "requisiciones": [
+        {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
+        {"clave": "TERCERO", "etiqueta": "Tercero", "tipo": "text"},
+        {"clave": "SOLICITANTE", "etiqueta": "Solicitante", "tipo": "text"},
+        {"clave": "UN", "etiqueta": "Unidad de negocio (UN)", "tipo": "text"},
+        {"clave": "CCOSTOS", "etiqueta": "Centro de costos", "tipo": "text"},
+        {"clave": "FECHA", "etiqueta": "Fecha (AAAAMMDD)", "tipo": "text"},
+        {"clave": "CO_SALIDA", "etiqueta": "CO de salida", "tipo": "text"},
+    ],
+    "sobrecostos": [
+        {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
+        {"clave": "TERCERO", "etiqueta": "Tercero", "tipo": "text"},
+        {"clave": "SOLICITANTE", "etiqueta": "Solicitante", "tipo": "text"},
+        {"clave": "UN", "etiqueta": "Unidad de negocio (UN)", "tipo": "text"},
+        {"clave": "CCOSTOS", "etiqueta": "Centro de costos", "tipo": "text"},
+        {"clave": "FECHA", "etiqueta": "Fecha (AAAAMMDD)", "tipo": "text"},
+        {"clave": "VENDEDOR", "etiqueta": "Vendedor", "tipo": "text"},
+        {"clave": "LISTA_PRECIO", "etiqueta": "Lista de precio", "tipo": "text"},
+        {"clave": "COMPRADOR", "etiqueta": "Comprador", "tipo": "text"},
+    ],
+    "transferencia_sc": [
+        {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
+        {"clave": "UN", "etiqueta": "Unidad de negocio (UN)", "tipo": "text"},
+        {"clave": "FECHA", "etiqueta": "Fecha (AAAAMMDD)", "tipo": "text"},
+        {"clave": "TIPO_DOC", "etiqueta": "Tipo de documento", "tipo": "text"},
+    ],
 }
 
 # ---- Datos: TODA la hoja CANAL -----------------------------------------------
@@ -234,5 +272,72 @@ def datos_esquema_de(proceso_id):
 
 
 def admite_parametros_manuales(proceso_id):
-    """Un proceso admite modo manual solo si tiene columnas usadas definidas."""
-    return proceso_id in DATOS_USADAS
+    """Admite modo manual si tiene grilla CANAL o esquema por hojas."""
+    return proceso_id in DATOS_USADAS or proceso_id in HOJAS_MANUALES
+
+
+# ---- Procesos por HOJAS: cada hoja del Excel es una tabla pegable aparte -----
+# Para Pedidos/Requisiciones/Sobrecostos/Transferencia el modo manual muestra la
+# tabla principal y, debajo, las tablas extra (EQUIVALENTES). Los parámetros
+# (CIA del selector + CO/tercero/...) van en el bloque de parámetros.
+HOJAS_MANUALES = {
+    "pedidos": [
+        {"clave": "PEDIDO", "nombre": "Pedido — líneas", "columnas": [
+            {"clave": "NUM_DOC", "etiqueta": "Núm. documento", "tipo": "number"},
+            {"clave": "N.I.T / C.C.", "etiqueta": "NIT / CC cliente", "tipo": "text"},
+            {"clave": "SUCURSAL", "etiqueta": "Sucursal", "tipo": "text"},
+            {"clave": "CON_PAGO", "etiqueta": "Cond. de pago", "tipo": "text"},
+            {"clave": "CODIGO", "etiqueta": "Código producto", "tipo": "text"},
+            {"clave": "BOD SALIDA", "etiqueta": "Bodega salida", "tipo": "text"},
+            {"clave": "CANT.(kg)", "etiqueta": "Cantidad (kg)", "tipo": "number"},
+        ]},
+        {"clave": "EQUIVALENTES", "nombre": "Equivalentes — código → referencia Siesa", "columnas": [
+            {"clave": "CODIGO", "etiqueta": "Código producto", "tipo": "text"},
+            {"clave": "REF_SIESA", "etiqueta": "Referencia Siesa", "tipo": "text"},
+        ]},
+    ],
+    "requisiciones": [
+        {"clave": "TRASNFERENCIA", "nombre": "Requisición — líneas", "columnas": [
+            {"clave": "NUM_DOC", "etiqueta": "Núm. documento", "tipo": "number"},
+            {"clave": "No.", "etiqueta": "No.", "tipo": "number"},
+            {"clave": "BOD ENTRADA", "etiqueta": "Bodega entrada", "tipo": "text"},
+            {"clave": "BOD SALIDA", "etiqueta": "Bodega salida", "tipo": "text"},
+            {"clave": "CODIGO", "etiqueta": "Código producto", "tipo": "text"},
+            {"clave": "CANT.(kg)", "etiqueta": "Cantidad (kg)", "tipo": "number"},
+        ]},
+        {"clave": "EQUIVALENTES", "nombre": "Equivalentes — código → referencia Siesa", "columnas": [
+            {"clave": "CODIGO", "etiqueta": "Código producto", "tipo": "text"},
+            {"clave": "REF_SIESA", "etiqueta": "Referencia Siesa", "tipo": "text"},
+        ]},
+    ],
+    "sobrecostos": [
+        {"clave": "SOBRECOSTOS", "nombre": "Sobrecostos — líneas", "columnas": [
+            {"clave": "NUM_DOC", "etiqueta": "Núm. documento", "tipo": "number"},
+            {"clave": "N.I.T / C.C.", "etiqueta": "NIT / CC cliente", "tipo": "text"},
+            {"clave": "SUCURSAL", "etiqueta": "Sucursal", "tipo": "text"},
+            {"clave": "TIPO_DOC_BASE", "etiqueta": "Tipo doc. base", "tipo": "text"},
+            {"clave": "NUM_DOC_BASE", "etiqueta": "Núm. doc. base", "tipo": "number"},
+            {"clave": "VALOR", "etiqueta": "Valor", "tipo": "number"},
+            {"clave": "DESCRIPCION", "etiqueta": "Descripción", "tipo": "text"},
+            {"clave": "REF_SOBRECOSTOS", "etiqueta": "Referencia sobrecosto", "tipo": "text"},
+        ]},
+    ],
+    "transferencia_sc": [
+        {"clave": "DESPOSTE", "nombre": "Desposte — líneas", "columnas": [
+            {"clave": "BODEGA ORIGEN", "etiqueta": "Bodega origen", "tipo": "text"},
+            {"clave": "BODEGA DESTINO", "etiqueta": "Bodega destino", "tipo": "text"},
+            {"clave": "LOTE", "etiqueta": "Lote", "tipo": "text"},
+            {"clave": "TIPO", "etiqueta": "Tipo (producto)", "tipo": "text"},
+            {"clave": "FRÍO(kg)", "etiqueta": "Frío (kg)", "tipo": "number"},
+        ]},
+        {"clave": "EQUIVALENTES", "nombre": "Equivalentes — producto → referencia Siesa", "columnas": [
+            {"clave": "PRODUCTO", "etiqueta": "Producto", "tipo": "text"},
+            {"clave": "REF_SIESA", "etiqueta": "Referencia Siesa", "tipo": "text"},
+        ]},
+    ],
+}
+
+
+def hojas_manuales_de(proceso_id):
+    """Hojas (tablas) del modo manual por hojas, o lista vacía."""
+    return HOJAS_MANUALES.get(proceso_id, [])

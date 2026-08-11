@@ -771,6 +771,19 @@ body {
     object-fit: contain;
 }
 
+/* Fallback cuando la empresa no tiene logo (se muestra la inicial). */
+.empresa-card__fallback {
+    display: none;
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: var(--green-50);
+    color: var(--green-600);
+    place-items: center;
+    font-size: 28px;
+    font-weight: 700;
+}
+
 .empresa-card__name {
     font-size: 14px;
     font-weight: 600;
@@ -797,6 +810,10 @@ body {
 
 .empresa-card.is-active .empresa-card__check { opacity: 1; transform: scale(1); }
 .empresa-card__check svg { width: 14px; height: 14px; }
+
+/* Tablas apiladas del modo por hojas (Pedidos/Sobrecostos/...) */
+.hoja-tabla { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+.hoja-tabla:first-child { margin-top: 0; padding-top: 0; border-top: none; }
 
 /* ---------- Modo de parámetros (Excel / manual) ---------- */
 .modo { margin-bottom: 20px; }

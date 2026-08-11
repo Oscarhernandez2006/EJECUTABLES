@@ -83,7 +83,8 @@
                     <div class="empresa-grid" id="empresaOptions">
                         {% for empresa in empresas %}
                         <button type="button" class="empresa-card" data-empresa="{{ empresa.id }}">
-                            <img class="empresa-card__logo" src="{{ url_for('static', filename='img/empresa-' + empresa.id + '.png') }}" alt="{{ empresa.nombre }}" />
+                            <img class="empresa-card__logo" src="{{ url_for('static', filename='img/' + empresa.logo) }}" alt="{{ empresa.nombre }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';" />
+                            <span class="empresa-card__fallback" aria-hidden="true">{{ empresa.corto[0] | upper }}</span>
                             <span class="empresa-card__name">{{ empresa.corto }}</span>
                             <span class="empresa-card__check">
                                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -172,6 +173,9 @@
                             Agregar registro
                         </button>
                     </div>
+
+                    <!-- Modo por hojas: una tabla por hoja, apiladas (JS las genera) -->
+                    <div id="hojasBlock" hidden></div>
 
                     <!-- Fecha (solo para procesos que la requieren) -->
                     <div class="fecha-field" id="fechaField" hidden>

@@ -72,6 +72,21 @@ def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL"):
     return pd.read_excel(excel_path, sheet_name=sheet, dtype=dtype, skiprows=skiprows)
 
 
+def hoja_df(hojas, clave, dtype=None):
+    """Construye el DataFrame de una hoja manual (lista de dicts) por su clave.
+
+    ``hojas`` es el dict {nombre_hoja: [registros]} que llega del modo manual
+    por hojas. Aplica ``dtype`` a las columnas presentes.
+    """
+    registros = (hojas or {}).get(clave, []) or []
+    df = pd.DataFrame(registros)
+    if dtype:
+        for col, tipo in dtype.items():
+            if col in df.columns:
+                df[col] = df[col].astype(tipo)
+    return df
+
+
 def generar_cons(i, t):
     """Genera un consecutivo de ``t`` dígitos rellenado con ceros a la izquierda."""
     tamano = "0" * t
@@ -178,20 +193,23 @@ def consumir_servicio_web(xml_path, url=URL_SERVICIO):
         or _resultado_es_error(resultado_siesa)
     )
 
-    if fault:
-        mensaje = f"Error del servicio de Siesa: {fault}"
-    elif resultado_siesa:
-        mensaje = resultado_siesa
-    elif hay_error:
-        mensaje = f"El servicio de Siesa respondió con código {response.status_code}."
+    # Mensaje legible para el usuario (sin etiquetas XML ni "texto todo junto").
+    limpio = _limpiar_mensaje(resultado_siesa)
+    if not hay_error:
+        if limpio and len(limpio) <= 200:
+            mensaje = "Importación registrada en Siesa. " + limpio
+        else:
+            mensaje = "Importación registrada correctamente en Siesa."
+    elif fault:
+        mensaje = "Siesa rechazó la importación: " + (_limpiar_mensaje(fault) or "error del servicio.")
     else:
-        mensaje = "Importación aceptada por Siesa."
+        mensaje = "Siesa reportó un error: " + (limpio[:400] or f"código {response.status_code}.")
 
     return {
         "ok": not hay_error,
         "status_code": response.status_code,
         "respuesta": texto,
-        "mensaje": mensaje,
+        "mensaje": mensaje.strip(),
         "error": hay_error,
     }
 
@@ -226,3 +244,18 @@ def _resultado_es_error(resultado):
         return False
     bajo = resultado.lower()
     return any(marca in bajo for marca in _MARCADORES_ERROR)
+
+
+def _limpiar_mensaje(texto):
+    """Convierte la respuesta de Siesa (a veces XML) en texto legible.
+
+    Quita etiquetas, desescapa entidades y colapsa espacios para que el mensaje
+    se lea como una frase y no como un bloque de texto pegado.
+    """
+    if not texto:
+        return ""
+    sin_tags = re.sub(r"<[^>]+>", " ", texto)
+    for a, b in (("&lt;", "<"), ("&gt;", ">"), ("&quot;", '"'), ("&apos;", "'"), ("&amp;", "&")):
+        sin_tags = sin_tags.replace(a, b)
+    sin_tags = re.sub(r"<[^>]+>", " ", sin_tags)
+    return re.sub(r"\s+", " ", sin_tags).strip()

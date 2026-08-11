@@ -10,9 +10,11 @@ from .esquemas import (
     PARAMETROS_ESQUEMA,
     CANAL_COLUMNAS,
     DATOS_USADAS,
+    HOJAS_MANUALES,
     esquema_de,
     columnas_usadas_de,
     datos_esquema_de,
+    hojas_manuales_de,
     admite_parametros_manuales,
 )
 
@@ -24,8 +26,10 @@ __all__ = [
     "PARAMETROS_ESQUEMA",
     "CANAL_COLUMNAS",
     "DATOS_USADAS",
+    "HOJAS_MANUALES",
     "esquema_de",
     "columnas_usadas_de",
     "datos_esquema_de",
+    "hojas_manuales_de",
     "admite_parametros_manuales",
 ]
