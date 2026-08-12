@@ -63,8 +63,12 @@ class CompraPorcino:
         self.data1 = self.data1[self.data1["NIT"].notna()]
         self.data1["NUMERO_DOC"] = 0
         self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
-        self.data1 = self.data1[self.data1["FECHA SACRIFICIO SIESA"] == self.fecha]
+        self.data1 = siesa.filtrar_por_fecha(self.data1, "FECHA SACRIFICIO SIESA", self.fecha)
         self.data1 = self.data1[self.data1["PESO COMPRA"] > 0]
+        siesa.exigir_datos(
+            self.data1,
+            f"Las filas de la fecha {self.fecha} tienen PESO COMPRA en 0; no hay nada que enviar.",
+        )
         self.data1["PESO COMPRA"] = round(self.data1["PESO COMPRA"], 2)
         self.data1["P. NEGOCIADO"] = round(self.data1["P. NEGOCIADO"].round(0), 2)
         self.data1["VR_BRUTO"] = self.data1["PESO COMPRA"] * self.data1["P. NEGOCIADO"]

@@ -38,7 +38,7 @@ class FacturaCompra:
             self.CIA = int(empresa_id)
             self.CO = str(parametros["CO"])
             self.COMPRADOR = parametros["COMPRADOR"]
-            self.UN = str(parametros["UN"])
+            self.UN = siesa.codigo(parametros["UN"])
             self.SERVICIO_COMPRA = str(parametros["SERVICIO_COMPRA"])
             self.AUXLIAR_DB_VACUNO = int(parametros["AUX_DB_VACUNO"])
             self.AUXLIAR_DB_PORCINO = int(parametros["AUX_DB_PORCINO"])
@@ -51,7 +51,7 @@ class FacturaCompra:
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
             self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
             self.COMPRADOR = self.data2["CODIGO_PARAMETRO"].iloc[4]
-            self.UN = self.data2["UN"].iloc[5]
+            self.UN = siesa.codigo(self.data2["UN"].iloc[5])
             self.SERVICIO_COMPRA = str(int(self.data3["CODIGO_PARAMETRO"].iloc[0]))
             # Auxiliares contables por NOMBRE, no por posición: la plantilla lista
             # DÉBITO/CRÉDITO de bovino y porcino y el orden puede variar entre archivos.
@@ -126,10 +126,10 @@ class FacturaCompra:
             + "{:3}".format(self.CO)
             + "{:3}".format(self.TIPO_DOCUMENTO)
             + "{:0>8.0f}".format(1)
-            + "{:20}".format(
+            + "{:<20}".format(str(
                 self.AUXLIAR_DB_VACUNO if self.SERVICIO_COMPRA == "1690"
-                else self.AUXLIAR_DB_PORCINO)
-            + "{:<15}".format(self.TERCERO_CRE)
+                else self.AUXLIAR_DB_PORCINO))
+            + "{:<15}".format(" ")
             + "{:3}".format(self.CO)
             + "{:<20}".format(self.UN)
             + "{:<15}".format(" ")
@@ -155,10 +155,10 @@ class FacturaCompra:
             + "{:3}".format(self.CO)
             + "{:3}".format(self.TIPO_DOCUMENTO)
             + "{:0>8.0f}".format(1)
-            + "{:20}".format(
+            + "{:<20}".format(str(
                 self.AUXILIAR_CR_VACUNO if self.SERVICIO_COMPRA == "1690"
-                else self.AUXILIAR_CR_PORCINO)
-            + "{:<15}".format(self.TERCERO_CRE)
+                else self.AUXILIAR_CR_PORCINO))
+            + "{:<15}".format(" ")
             + "{:3}".format(self.CO)
             + "{:<20}".format(self.UN)
             + "{:<15}".format(" ")

@@ -144,6 +144,52 @@ def alinear_columnas(df, columnas):
     return df.rename(columns=renombrar) if renombrar else df
 
 
+def norm_fecha(valor):
+    """Normaliza una fecha a 'AAAAMMDD' quitando separadores (soporta datetime/str)."""
+    return re.sub(r"\D", "", str(valor))[:8]
+
+
+def codigo(valor):
+    """Normaliza un código numérico leído de Excel: 1.0 -> '1', NaN -> ''.
+
+    Evita que valores enteros leídos como float (p. ej. la U.N. '1.0') se envíen
+    con el sufijo '.0' a Siesa. Los textos no numéricos se devuelven tal cual.
+    """
+    if valor is None:
+        return ""
+    try:
+        if pd.isna(valor):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    if isinstance(valor, float) and valor.is_integer():
+        return str(int(valor))
+    texto = str(valor).strip()
+    if re.fullmatch(r"\d+\.0+", texto):
+        return texto.split(".")[0]
+    return texto
+
+
+def filtrar_por_fecha(df, columna, fecha):
+    """Filtra ``df`` por ``fecha`` comparando de forma normalizada (AAAAMMDD).
+
+    Tolera formatos distintos ('2026-08-07', '20260807', datetime, etc.). Si no
+    hay coincidencias, lanza un ``ValueError`` claro listando las fechas que sí
+    trae el archivo, para que el usuario sepa qué seleccionar.
+    """
+    objetivo = norm_fecha(fecha)
+    col = df[columna].map(norm_fecha)
+    filtrado = df[col == objetivo]
+    if filtrado.empty:
+        disponibles = sorted({c for c in col if c})
+        listado = ", ".join(disponibles) if disponibles else "ninguna"
+        raise ValueError(
+            f"No hay filas con la fecha {objetivo} en «{columna}». "
+            f"Fechas disponibles en el archivo: {listado}."
+        )
+    return filtrado
+
+
 def hoja_df(hojas, clave, dtype=None):
     """Construye el DataFrame de una hoja manual (lista de dicts) por su clave.
 
