@@ -106,15 +106,42 @@ def leer_hoja(excel_path, nombre, dtype=None, **kwargs):
     return pd.read_excel(xl, sheet_name=real, dtype=dtype, **kwargs)
 
 
-def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL"):
+def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL", columnas=None):
     """Devuelve el DataFrame de datos: de registros manuales o del Excel.
 
     Si ``datos`` (lista de dicts) no es ``None``, construye el DataFrame a
     partir de esos registros; de lo contrario lee la hoja indicada del Excel.
+    Si se pasa ``columnas``, alinea los encabezados a esos nombres tolerando
+    diferencias de puntuación/espacios (p. ej. 'P, NEGOCIADO' -> 'P. NEGOCIADO').
     """
     if datos is not None:
-        return pd.DataFrame(datos)
-    return pd.read_excel(excel_path, sheet_name=sheet, dtype=dtype, skiprows=skiprows)
+        df = pd.DataFrame(datos)
+    else:
+        df = pd.read_excel(excel_path, sheet_name=sheet, dtype=dtype, skiprows=skiprows)
+    return alinear_columnas(df, columnas)
+
+
+def _clave_columna(nombre):
+    """Normaliza un encabezado: mayúsculas, puntuación a espacio y espacios colapsados."""
+    texto = re.sub(r"[.,;:]", " ", str(nombre).upper())
+    return re.sub(r"[\s_]+", " ", texto).strip()
+
+
+def alinear_columnas(df, columnas):
+    """Renombra las columnas del DataFrame a los nombres esperados en ``columnas``.
+
+    Empareja por forma normalizada, así 'P. NEGOCIADO', 'P, NEGOCIADO' y
+    'P.NEGOCIADO' se tratan como la misma columna. Deja intactas las demás.
+    """
+    if df is None or not columnas:
+        return df
+    mapa = {_clave_columna(c): c for c in df.columns}
+    renombrar = {}
+    for esperada in columnas:
+        actual = mapa.get(_clave_columna(esperada))
+        if actual is not None and actual != esperada:
+            renombrar[actual] = esperada
+    return df.rename(columns=renombrar) if renombrar else df
 
 
 def hoja_df(hojas, clave, dtype=None):

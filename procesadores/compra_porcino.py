@@ -52,6 +52,8 @@ class CompraPorcino:
             dtype={"NIT PROVEEDOR": str, "FECHA SACRIFICIO SIESA": str,
                    "LOTE": str, "LOTE FRIGOAPP": str},
             skiprows=6,
+            columnas=["NIT PROVEEDOR", "FECHA SACRIFICIO SIESA", "LOTE", "LOTE FRIGOAPP",
+                      "PESO COMPRA", "P. NEGOCIADO", "FACTURA PROVEEDOR"],
         )
         self.d0 = []
 
