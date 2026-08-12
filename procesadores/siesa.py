@@ -83,6 +83,29 @@ def param_por_nombre(df, texto, col_nombre="PARAMETRO", col_valor="CODIGO_PARAME
     return filtrado[col_valor].iloc[0]
 
 
+def _normalizar_hoja(nombre):
+    """Normaliza el nombre de una hoja: colapsa espacios/guiones bajos y sube a mayúsculas."""
+    return re.sub(r"[\s_]+", " ", str(nombre)).strip().upper()
+
+
+def leer_hoja(excel_path, nombre, dtype=None, **kwargs):
+    """Lee una hoja tolerando variantes de nombre (``PARAMETROS ITEMS`` vs ``PARAMETROS_ITEMS``).
+
+    Distintas plantillas de empresa nombran las hojas con espacio o con guion
+    bajo; aquí se resuelve el nombre real por coincidencia normalizada. Lanza un
+    ``ValueError`` claro con las hojas disponibles si no existe.
+    """
+    xl = pd.ExcelFile(excel_path)
+    objetivo = _normalizar_hoja(nombre)
+    real = next((h for h in xl.sheet_names if _normalizar_hoja(h) == objetivo), None)
+    if real is None:
+        disponibles = ", ".join(xl.sheet_names)
+        raise ValueError(
+            f"No se encontró la hoja «{nombre}» en el Excel. Hojas disponibles: {disponibles}."
+        )
+    return pd.read_excel(xl, sheet_name=real, dtype=dtype, **kwargs)
+
+
 def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL"):
     """Devuelve el DataFrame de datos: de registros manuales o del Excel.
 

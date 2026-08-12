@@ -290,7 +290,7 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
         "respuesta": resultado.get("respuesta"),
         "trama_txt": resultado.get("trama_txt"),
         "trama_nombre": resultado.get("trama_nombre"),
-    }), (200 if exito else 502)
+    }), 200  # El éxito/fallo va en "ok"; evitamos 5xx para que el proxy no oculte el mensaje.
 
 
 @app.route("/api/procesar/<tipo>", methods=["POST"])

@@ -45,18 +45,20 @@ class FacturaCompra:
             self.AUXILIAR_CR_VACUNO = int(parametros["AUX_CR_VACUNO"])
             self.AUXILIAR_CR_PORCINO = int(parametros["AUX_CR_PORCINO"])
         else:
-            self.data2 = pd.read_excel(excel_path, sheet_name="PARAMETROS")
-            self.data3 = pd.read_excel(
-                excel_path, sheet_name="PARAMETROS ITEMS", dtype={"CODIGO_PARAMETRO": str})
+            self.data2 = siesa.leer_hoja(excel_path, "PARAMETROS")
+            self.data3 = siesa.leer_hoja(
+                excel_path, "PARAMETROS ITEMS", dtype={"CODIGO_PARAMETRO": str})
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
             self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
             self.COMPRADOR = self.data2["CODIGO_PARAMETRO"].iloc[4]
             self.UN = self.data2["UN"].iloc[5]
             self.SERVICIO_COMPRA = str(int(self.data3["CODIGO_PARAMETRO"].iloc[0]))
-            self.AUXLIAR_DB_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[13])
-            self.AUXLIAR_DB_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[14])
-            self.AUXILIAR_CR_VACUNO = int(self.data2["CODIGO_PARAMETRO"].iloc[15])
-            self.AUXILIAR_CR_PORCINO = int(self.data2["CODIGO_PARAMETRO"].iloc[16])
+            # Auxiliares contables por NOMBRE, no por posición: la plantilla lista
+            # DÉBITO/CRÉDITO de bovino y porcino y el orden puede variar entre archivos.
+            self.AUXLIAR_DB_VACUNO = self._aux_por_nombre("DEBITO BOVINO", "DEBITO VACUNO")
+            self.AUXILIAR_CR_VACUNO = self._aux_por_nombre("CREDITO BOVINO", "CREDITO VACUNO")
+            self.AUXLIAR_DB_PORCINO = self._aux_por_nombre("DEBITO PORCINO")
+            self.AUXILIAR_CR_PORCINO = self._aux_por_nombre("CREDITO PORCINO")
             siesa.validar_empresa(self.CIA, empresa_id)
 
         self.TIPO_DOCUMENTO = "NI"
@@ -66,6 +68,20 @@ class FacturaCompra:
         self.TERCERO_CRE = "Generico"
         self.d0 = []
         self.CIA_CONEXION = str(int(self.CIA))
+
+    def _aux_por_nombre(self, *sinonimos):
+        """Devuelve el código de una cuenta auxiliar buscándola por nombre en PARAMETROS.
+
+        Recorre los sinónimos (p. ej. 'DEBITO BOVINO' / 'DEBITO VACUNO') y usa la
+        primera coincidencia; así el orden de las filas de la plantilla no importa.
+        """
+        for texto in sinonimos:
+            valor = siesa.param_por_nombre(self.data2, texto)
+            if valor is not None and not pd.isna(valor):
+                return int(valor)
+        raise ValueError(
+            f"No se encontró la cuenta auxiliar «{sinonimos[0]}» en la hoja PARAMETROS."
+        )
 
     def dataframe(self):
         self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]

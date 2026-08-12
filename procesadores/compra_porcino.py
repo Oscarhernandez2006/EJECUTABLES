@@ -35,9 +35,9 @@ class CompraPorcino:
             self.SERVICIO_COMPRA = str(parametros["SERVICIO_COMPRA"])
         else:
             # Parámetros de las hojas PARAMETROS y PARAMETROS ITEMS, igual que el ejecutable.
-            self.data2 = pd.read_excel(excel_path, sheet_name="PARAMETROS", dtype={"UN": str})
-            self.data3 = pd.read_excel(
-                excel_path, sheet_name="PARAMETROS ITEMS", dtype={"CODIGO_PARAMETRO": str})
+            self.data2 = siesa.leer_hoja(excel_path, "PARAMETROS", dtype={"UN": str})
+            self.data3 = siesa.leer_hoja(
+                excel_path, "PARAMETROS ITEMS", dtype={"CODIGO_PARAMETRO": str})
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
             self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
             self.BODEGA = str(int(self.data2["CODIGO_PARAMETRO"].iloc[2]))
