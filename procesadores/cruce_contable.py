@@ -10,6 +10,7 @@ versión web se toma automáticamente la fecha de la hoja CANAL
 """
 
 import os
+import unicodedata
 
 import pandas as pd
 
@@ -45,7 +46,7 @@ class FacturaCompra:
             self.AUXILIAR_CR_VACUNO = int(parametros["AUX_CR_VACUNO"])
             self.AUXILIAR_CR_PORCINO = int(parametros["AUX_CR_PORCINO"])
         else:
-            self.data2 = siesa.leer_hoja(excel_path, "PARAMETROS")
+            self.data2 = siesa.leer_hoja(excel_path, "PARAMETROS", dtype={"UN": str})
             self.data3 = siesa.leer_hoja(
                 excel_path, "PARAMETROS ITEMS", dtype={"CODIGO_PARAMETRO": str})
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
@@ -55,10 +56,10 @@ class FacturaCompra:
             self.SERVICIO_COMPRA = str(int(self.data3["CODIGO_PARAMETRO"].iloc[0]))
             # Auxiliares contables por NOMBRE, no por posición: la plantilla lista
             # DÉBITO/CRÉDITO de bovino y porcino y el orden puede variar entre archivos.
-            self.AUXLIAR_DB_VACUNO = self._aux_por_nombre("DEBITO BOVINO", "DEBITO VACUNO")
-            self.AUXILIAR_CR_VACUNO = self._aux_por_nombre("CREDITO BOVINO", "CREDITO VACUNO")
-            self.AUXLIAR_DB_PORCINO = self._aux_por_nombre("DEBITO PORCINO")
-            self.AUXILIAR_CR_PORCINO = self._aux_por_nombre("CREDITO PORCINO")
+            self.AUXLIAR_DB_VACUNO = self._aux_por_nombre("DEBITO", "BOVINO")
+            self.AUXILIAR_CR_VACUNO = self._aux_por_nombre("CREDITO", "BOVINO")
+            self.AUXLIAR_DB_PORCINO = self._aux_por_nombre("DEBITO", "PORCINO")
+            self.AUXILIAR_CR_PORCINO = self._aux_por_nombre("CREDITO", "PORCINO")
             siesa.validar_empresa(self.CIA, empresa_id)
 
         self.TIPO_DOCUMENTO = "NI"
@@ -69,18 +70,25 @@ class FacturaCompra:
         self.d0 = []
         self.CIA_CONEXION = str(int(self.CIA))
 
-    def _aux_por_nombre(self, *sinonimos):
+    def _aux_por_nombre(self, tipo, animal):
         """Devuelve el código de una cuenta auxiliar buscándola por nombre en PARAMETROS.
 
-        Recorre los sinónimos (p. ej. 'DEBITO BOVINO' / 'DEBITO VACUNO') y usa la
-        primera coincidencia; así el orden de las filas de la plantilla no importa.
+        Empareja por prefijo de tipo (DEB/CRED) y de animal (BOV/VAC o PORC/CERD),
+        sin acentos, para tolerar variantes y errores de tipeo (p. ej. 'CREDTO',
+        'CRÉDITO', 'CERDO') y el orden de las filas.
         """
-        for texto in sinonimos:
-            valor = siesa.param_por_nombre(self.data2, texto)
-            if valor is not None and not pd.isna(valor):
-                return int(valor)
+        tipo_key = "DEB" if tipo.upper().startswith("DEB") else "CRED"
+        animal_keys = ("BOV", "VAC") if animal.upper().startswith("BOV") else ("PORC", "CERD")
+        for _, fila in self.data2.iterrows():
+            nombre = unicodedata.normalize("NFKD", str(fila.get("PARAMETRO", "")))
+            nombre = nombre.encode("ascii", "ignore").decode().upper()
+            if tipo_key in nombre and any(a in nombre for a in animal_keys):
+                valor = fila["CODIGO_PARAMETRO"]
+                if valor is not None and not pd.isna(valor):
+                    return int(valor)
         raise ValueError(
-            f"No se encontró la cuenta auxiliar «{sinonimos[0]}» en la hoja PARAMETROS."
+            f"No se encontró la cuenta auxiliar de {tipo} {animal} en la hoja "
+            f"PARAMETROS (revisa que exista una fila con «{tipo}» y «{animal}»)."
         )
 
     def dataframe(self):
