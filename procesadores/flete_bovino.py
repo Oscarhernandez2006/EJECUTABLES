@@ -37,9 +37,9 @@ class FleteBovino:
                 excel_path, sheet_name="PARAMETROS",
                 dtype={"CO": str, "BODEGA": str, "UN": str})
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
-            self.CO = self.data2["CODIGO_PARAMETRO"].iloc[1]
-            self.BODEGA = self.data2["CODIGO_PARAMETRO"].iloc[2]
-            self.COMPRADOR = self.data2["CODIGO_PARAMETRO"].iloc[4]
+            self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
+            self.BODEGA = str(int(self.data2["CODIGO_PARAMETRO"].iloc[2]))
+            self.COMPRADOR = str(int(self.data2["CODIGO_PARAMETRO"].iloc[4]))
             self.UN = self.data2["UN"].iloc[5]
             siesa.validar_empresa(self.CIA, empresa_id)
         self.CIA_CONEXION = str(int(self.CIA))

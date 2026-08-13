@@ -129,7 +129,7 @@ class FacturaCompra:
             + "{:<20}".format(str(
                 self.AUXLIAR_DB_VACUNO if self.SERVICIO_COMPRA == "1690"
                 else self.AUXLIAR_DB_PORCINO))
-            + "{:<15}".format(" ")
+            + "{:<15}".format(self.TERCERO_CRE)
             + "{:3}".format(self.CO)
             + "{:<20}".format(self.UN)
             + "{:<15}".format(" ")
@@ -158,7 +158,7 @@ class FacturaCompra:
             + "{:<20}".format(str(
                 self.AUXILIAR_CR_VACUNO if self.SERVICIO_COMPRA == "1690"
                 else self.AUXILIAR_CR_PORCINO))
-            + "{:<15}".format(" ")
+            + "{:<15}".format(self.TERCERO_CRE)
             + "{:3}".format(self.CO)
             + "{:<20}".format(self.UN)
             + "{:<15}".format(" ")
