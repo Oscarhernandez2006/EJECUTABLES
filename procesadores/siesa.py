@@ -304,10 +304,13 @@ def consumir_servicio_web(xml_path, url=URL_SERVICIO):
     texto = response.text or ""
     fault = _extraer_fault(texto)
     resultado_siesa = _extraer_resultado_siesa(texto)
+    # Siesa reporta las líneas rechazadas en un DataSet con nodos <f_detalle>.
+    detalles = _extraer_detalles(texto)
 
     hay_error = (
         response.status_code != 200
         or fault is not None
+        or bool(detalles)
         or _resultado_es_error(resultado_siesa)
     )
 
@@ -320,6 +323,8 @@ def consumir_servicio_web(xml_path, url=URL_SERVICIO):
             mensaje = "Importación registrada correctamente en Siesa."
     elif fault:
         mensaje = "Siesa rechazó la importación: " + (_limpiar_mensaje(fault) or "error del servicio.")
+    elif detalles:
+        mensaje = _resumen_detalles(detalles)
     else:
         mensaje = "Siesa reportó un error: " + (limpio[:400] or f"código {response.status_code}.")
 
@@ -354,6 +359,30 @@ def _extraer_fault(texto):
     """Extrae el <faultstring> de un SOAP Fault, si lo hay."""
     m = re.search(r"<faultstring>(.*?)</faultstring>", texto, re.DOTALL)
     return m.group(1).strip() if m else None
+
+
+def _extraer_detalles(texto):
+    """Extrae los mensajes de rechazo por línea que Siesa devuelve en <f_detalle>.
+
+    Cuando la importación tiene inconsistencias (p. ej. "Item sin cantidad
+    disponible"), Siesa responde HTTP 200 con un DataSet de errores en lugar de
+    un SOAP Fault. Cada nodo <f_detalle> describe el problema de una línea.
+    """
+    detalles = []
+    for m in re.findall(r"<f_detalle>(.*?)</f_detalle>", texto, re.DOTALL):
+        limpio = _limpiar_mensaje(m)
+        if limpio:
+            detalles.append(limpio)
+    return detalles
+
+
+def _resumen_detalles(detalles):
+    """Arma un mensaje legible con las primeras líneas rechazadas por Siesa."""
+    unicos = list(dict.fromkeys(detalles))
+    resumen = " | ".join(unicos[:3])
+    if len(unicos) > 3:
+        resumen += f" | (+{len(unicos) - 3} más)"
+    return f"Siesa rechazó {len(detalles)} línea(s). Motivo: {resumen}"
 
 
 def _resultado_es_error(resultado):
