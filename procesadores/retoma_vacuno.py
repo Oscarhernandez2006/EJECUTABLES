@@ -35,6 +35,8 @@ class RetomaVacuno:
             self.CIA = int(empresa_id)
             self.CO = str(parametros["CO"])
             self.BODEGA_PROCESO = str(parametros["BODEGA_PROCESO"])
+            self.PRECIO_PIEL = float(parametros["PRECIO_PIEL"])
+            self.PRECIO_SEBO = float(parametros["PRECIO_SEBO"])
         else:
             # CIA/CO de PARAMETROS. El ejecutable original tenía un bug
             # (BODEGA_PROCESO no definida): aquí se toma la bodega de subproductos
@@ -43,6 +45,10 @@ class RetomaVacuno:
                 excel_path, sheet_name="PARAMETROS", dtype={"CO": str, "BODEGA": str})
             self.CIA = self.data2["CODIGO_PARAMETRO"].iloc[0]
             self.CO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[1]))
+            # Costos unitarios de piel/sebo desde PARAMETROS (COSTO PIEL iloc[6],
+            # COSTO SEBO iloc[7]): campos variables que fija el usuario en el Excel.
+            self.PRECIO_PIEL = float(self.data2["CODIGO_PARAMETRO"].iloc[6])
+            self.PRECIO_SEBO = float(self.data2["CODIGO_PARAMETRO"].iloc[7])
             # Bodega de subproductos: celda 8 de PARAMETROS (igual que el ejecutable).
             self.BODEGA_PROCESO = str(int(self.data2["CODIGO_PARAMETRO"].iloc[8]))
             siesa.validar_empresa(self.CIA, empresa_id)
@@ -65,9 +71,6 @@ class RetomaVacuno:
 
     def dataframe(self):
         self.data1["Fecha_control"] = ""
-        self.data1["valor_total_piel"] = 0
-        self.map_precios_KG_piel = self.referencias["SIESA_SEBO"].iloc[10]
-        self.map_precios_KG_sebo = self.referencias["SIESA_SEBO"].iloc[11]
         # Filtro NIT desactivado en el ejecutable original.
         self.data1["NUMERO_DOC"] = 0
         for i, _ in self.data1.iterrows():
@@ -76,14 +79,9 @@ class RetomaVacuno:
         self.data1 = self.data1[self.data1["FECHA SACRIFICIO SIESA"] == self.fecha]
         self.data1 = self.data1[self.data1["PESO EN FINCA"] > 0]
         self.data1["VR_BRUTO"] = (self.data1["P.NETO"] * self.data1["P.PROM FINCA"]).round(2)
-        self.data1["valor_total_piel"] = self.map_precios_KG_piel * self.data1["K. piel"]
-        self.data1["valor_total_sebo"] = self.map_precios_KG_sebo * self.data1["k. sebo"]
         self.data1["COSTO_UNITARIO"] = self.data1["total costo tat"] / self.data1["PEC(kg)"]
         for i, _ in self.data1.iterrows():
             self.data1.at[i, "COSTO_UNITARIO"] = round(self.data1.at[i, "COSTO_UNITARIO"], 2)
-        for i, _ in self.data1.iterrows():
-            self.data1.at[i, "COSTO_PIEL"] = self.data1.at[i, "valor piel "] / self.data1.at[i, "PEC(kg)"]
-        self.data1["COSTO_PIEL"] = round(self.data1["COSTO_PIEL"], 2)
         # LOTE.1 desactivado en el ejecutable original.
 
     def _detalle(self, c, ti, bodega, um, cantidad, costo, referencia):
@@ -177,13 +175,12 @@ class RetomaVacuno:
 
         # Bloque piel (ref 3238).
         for _, fila in self.data1.iterrows():
-            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "KG", fila["K. piel"], fila["COSTO_PIEL"], "3238"))
+            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "kg", fila["K. piel"], self.PRECIO_PIEL, "3238"))
             c += 1
 
         # Bloque sebo (ref 3249).
         for _, fila in self.data1.iterrows():
-            costo_sebo = int(fila["valor sebo"] / fila["k. sebo"])
-            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "KG", fila["k. sebo"], costo_sebo, "3249"))
+            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "kg", fila["k. sebo"], self.PRECIO_SEBO, "3249"))
             c += 1
 
         # Bloque retomas (ref 3260, unidad U, cantidad 1).

@@ -42,6 +42,8 @@ PARAMETROS_ESQUEMA = {
     "retoma_vacuno": [
         {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
         {"clave": "BODEGA_PROCESO", "etiqueta": "Bodega de subproductos", "tipo": "text"},
+        {"clave": "PRECIO_PIEL", "etiqueta": "Costo piel (por kg)", "tipo": "number"},
+        {"clave": "PRECIO_SEBO", "etiqueta": "Costo sebo (por kg)", "tipo": "number"},
     ],
     "retoma_porcino": [
         {"clave": "CO", "etiqueta": "Centro de operación (CO)", "tipo": "text"},
