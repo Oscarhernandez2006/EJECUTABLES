@@ -33,12 +33,14 @@ services:
       - "traefik.http.routers.cnx-web.rule=Host(`cnx.grupo-santacruz.com`)"
       - "traefik.http.routers.cnx-web.entrypoints=web"
       - "traefik.http.routers.cnx-web.middlewares=cnx-redirect"
+      - "traefik.http.routers.cnx-web.service=cnx"
       - "traefik.http.middlewares.cnx-redirect.redirectscheme.scheme=https"
       # HTTPS
       - "traefik.http.routers.cnx-secure.rule=Host(`cnx.grupo-santacruz.com`)"
       - "traefik.http.routers.cnx-secure.entrypoints=websecure"
       - "traefik.http.routers.cnx-secure.tls=true"
       - "traefik.http.routers.cnx-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.cnx-secure.service=cnx"
       # Puerto interno del contenedor (gunicorn escucha en 5000)
       - "traefik.http.services.cnx.loadbalancer.server.port=5000"
     deploy:
@@ -52,12 +54,14 @@ services:
         - "traefik.http.routers.cnx-web.rule=Host(`cnx.grupo-santacruz.com`)"
         - "traefik.http.routers.cnx-web.entrypoints=web"
         - "traefik.http.routers.cnx-web.middlewares=cnx-redirect"
+        - "traefik.http.routers.cnx-web.service=cnx"
         - "traefik.http.middlewares.cnx-redirect.redirectscheme.scheme=https"
         # HTTPS
         - "traefik.http.routers.cnx-secure.rule=Host(`cnx.grupo-santacruz.com`)"
         - "traefik.http.routers.cnx-secure.entrypoints=websecure"
         - "traefik.http.routers.cnx-secure.tls=true"
         - "traefik.http.routers.cnx-secure.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.cnx-secure.service=cnx"
         # Puerto interno del contenedor (gunicorn escucha en 5000)
         - "traefik.http.services.cnx.loadbalancer.server.port=5000"
 
