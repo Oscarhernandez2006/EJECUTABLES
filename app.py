@@ -169,6 +169,12 @@ PROCESOS = [
             {"clave": "equivalentes", "etiqueta": "Equivalentes", "archivo": "Equivalentes.xlsx"},
         ],
     },
+    {
+        "id": "precios", "nombre": "Lista de Precios", "grupo": "Precios",
+        "descripcion": "Importa/actualiza la lista de precios de items en Siesa.", "hoja": "PDV",
+        "requiere_empresa": True, "requiere_fecha": True,
+        "entradas": [{"clave": "archivo", "etiqueta": "Archivo Excel", "archivo": "PRECIOS.xlsx"}],
+    },
 ]
 
 

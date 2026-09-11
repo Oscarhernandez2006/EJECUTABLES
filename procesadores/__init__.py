@@ -28,6 +28,7 @@ from . import (
     requisiciones,
     sobrecostos,
     transferencia_sc,
+    precios,
 )
 
 # Mapa de tipos de proceso disponibles para la interfaz.
@@ -50,6 +51,7 @@ PROCESADORES = {
     "requisiciones": requisiciones,
     "sobrecostos": sobrecostos,
     "transferencia_sc": transferencia_sc,
+    "precios": precios,
 }
 
 __all__ = ["PROCESADORES"]
