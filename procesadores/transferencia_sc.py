@@ -149,7 +149,7 @@ class Doc:
                     "{:2}".format(' ')                                                     +  #Espacios  2  137
                     "{:15}".format(' ')                                                    +  #Centro de costo movimiento  15  152
                     "{:15}".format(' ')                                                    +  #Proyecto  15  167
-                    "{:4}".format('kg')                                                    +  #Unidad de medida  4  171
+                    "{:4}".format('KG')                                                    +  #Unidad de medida  4  171
                     "{:0>20.4f}".format(fila['FRÍO(kg)'])                                  +  #Cantidad base  20  191
                     "{:0>20.4f}".format(0)                                                 +  #Cantidad adicional  20  211
                     "{:0>20.4f}".format(0)                                                 +  #Costo promedio unitario  20  231
