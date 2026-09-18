@@ -173,7 +173,7 @@ class Ped:
                 + "{:8}".format(self.FECHA)
                 + "{:0>3.0F}".format(0)
                 + "{:3}".format(self.LISTA_PRECIO)
-                + "{:<4}".format("KG")
+                + "{:<4}".format("kg")
                 + "{:0>20.4f}".format(fila["CANT.(kg)"])
                 + "{:0>20.4f}".format(0)
                 + "{:0>20.4f}".format(0)

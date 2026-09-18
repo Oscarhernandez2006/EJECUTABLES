@@ -71,7 +71,7 @@ class Sobrecosto:
         self.CLASE_DOCUMENTO = "410"
         self.MODO_LIQUIDACION_COSTO = 1
         self.REFERENCIA_SOBRECOSTO = "1520"
-        self.UM = "U"
+        self.UM = "u"
 
         self.CIA_CONEXION = str(int(self.CIA))
 

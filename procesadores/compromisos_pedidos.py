@@ -89,7 +89,7 @@ class CompromisosPedidos:
                 + "{:5}".format(self.BODEGA)
                 + "{:10}".format(" ")
                 + "{:<15}".format(fila["LOTE"])
-                + "{:<4}".format("KG")
+                + "{:<4}".format("kg")
                 + "{:0>20.4f}".format(fila["FRÍO(kg)"])
                 + "{:0>20.4f}".format(0)
                 + "{:0>10.0f}".format(c - 1)

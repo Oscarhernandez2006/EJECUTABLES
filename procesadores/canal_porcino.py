@@ -138,7 +138,7 @@ class CanalPorcino:
                 + "{:2}".format(" ")
                 + "{:15}".format(" ")
                 + "{:15}".format(" ")
-                + "{:4}".format("KG")
+                + "{:4}".format("kg")
                 + "{:0>20.4f}".format(fila["PEC(kg)"])
                 + "{:0>20.4f}".format(0)
                 + "{:0>20.4f}".format(fila["COSTO_UNITARIO"])

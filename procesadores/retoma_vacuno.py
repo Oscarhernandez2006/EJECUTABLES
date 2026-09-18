@@ -112,7 +112,7 @@ class RetomaVacuno:
             + "{:255}".format("ENTRADA POR SARIFICIO")
             + "{:2000}".format(" ")
             + "{:40}".format(" ")
-            + "{:4}".format(um if um == "U" else " ")
+            + "{:4}".format(um if um == "u" else " ")
             + "{:10}".format(" ")
             + "{:15}".format(" ")
             + "{:7}".format(0000000)
@@ -185,12 +185,12 @@ class RetomaVacuno:
 
         # Bloque retomas (ref 3260, unidad U, cantidad 1).
         for _, fila in self.data1.iterrows():
-            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "U", 1, fila["retomas"], "3260"))
+            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "u", 1, fila["retomas"], "3260"))
             c += 1
 
         # Bloque vísceras (ref 1618, unidad U, cantidad 1).
         for _, fila in self.data1.iterrows():
-            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "U", 1, fila["v.visceras unidad"], "1618"))
+            self.d0.append(self._detalle(c, ti, self.BODEGA_PROCESO, "u", 1, fila["v.visceras unidad"], "1618"))
             c += 1
 
         self.trama_final = siesa.generar_consecutivo(c) + "99990001" + "{:0>3.0f}".format(self.CIA)

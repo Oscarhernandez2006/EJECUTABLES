@@ -127,7 +127,7 @@ class Req:
                 + "{:5}".format(fila["BOD ENTRADA"])
                 + "{:3}".format(self.CONCEPTO)
                 + "{:2}".format(self.MOTIVO)
-                + "{:<4}".format("KG")
+                + "{:<4}".format("kg")
                 + "{:0>20.4f}".format(fila["CANT.(kg)"])
                 + "{:0>20.4f}".format(0)
                 + "{:8}".format(self.FECHA)
