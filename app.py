@@ -37,6 +37,15 @@ logging.basicConfig(
 )
 app.logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
 
+
+@app.after_request
+def _log_status_peticion(response):
+    """Deja en el log método, ruta y status HTTP (200/400/404/500...) de cada request."""
+    if request.path != "/health":  # evita ruido de los pings del healthcheck
+        app.logger.info("%s %s -> %s", request.method, request.path, response.status_code)
+    return response
+
+
 # Devuelve el traceback completo al cliente solo si APP_DEBUG=1 (no en prod).
 DEBUG_ERRORES = os.getenv("APP_DEBUG", "0") == "1"
 
@@ -243,6 +252,13 @@ def _mensaje_amigable(exc):
     return f"{tipo}: {texto}"
 
 
+# Excepciones previsibles causadas por datos/archivo del usuario (Excel mal armado,
+# fecha/empresa equivocada, etc.): se responden como 400 (error del cliente), no 500.
+# ``ValueError`` cubre además los mensajes de negocio de ``siesa.exigir_datos`` /
+# ``siesa.validar_empresa`` (fecha sin filas, empresa incorrecta, hoja faltante...).
+ERRORES_DE_DATOS = (KeyError, ValueError, IndexError, FileNotFoundError)
+
+
 def _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos, hojas=None):
     """Invoca ``modulo.procesar`` pasando solo los argumentos que acepta."""
     params = inspect.signature(modulo.procesar).parameters
@@ -267,7 +283,14 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
             resultado = _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos, hojas)
         except Exception as exc:  # noqa: BLE001 - se reporta al usuario
             detalle = traceback.format_exc()
-            app.logger.error("Error procesando %s: %s", tipo, detalle)
+            # Datos/archivo del usuario -> 400 (previsible, no es un bug); cualquier
+            # otra excepción -> 500 (bug real, se loguea como error para investigar).
+            es_error_de_datos = isinstance(exc, ERRORES_DE_DATOS)
+            status = 400 if es_error_de_datos else 500
+            if es_error_de_datos:
+                app.logger.warning("Proceso %s: dato/archivo inválido (status=%s): %s", tipo, status, exc)
+            else:
+                app.logger.error("Proceso %s: error inesperado (status=%s): %s", tipo, status, detalle)
             payload = {
                 "ok": False,
                 "mensaje": _mensaje_amigable(exc),
@@ -276,17 +299,19 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
             # El traceback completo solo se expone si APP_DEBUG=1.
             if DEBUG_ERRORES:
                 payload["detalle"] = detalle
-            return jsonify(payload), 500
+            return jsonify(payload), status
 
     exito = resultado.get("ok", False)
     mensaje = resultado.get("mensaje") or (
         "Proceso ejecutado correctamente." if exito
         else "El servicio de Siesa reportó un error."
     )
+    # HTTP siempre 200 aquí (éxito/fallo va en "ok") para que el proxy no oculte el
+    # mensaje; el status_code real que devolvió el SOAP de Siesa se loguea aparte.
     if exito:
-        app.logger.info("Proceso %s OK (%s registros).", tipo, resultado.get("registros"))
+        app.logger.info("Proceso %s OK (%s registros) [http=200 siesa=%s].", tipo, resultado.get("registros"), resultado.get("status_code"))
     else:
-        app.logger.warning("Proceso %s con error: %s", tipo, mensaje)
+        app.logger.warning("Proceso %s con error [http=200 siesa=%s]: %s", tipo, resultado.get("status_code"), mensaje)
 
     return jsonify({
         "ok": exito,
@@ -296,7 +321,7 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
         "respuesta": resultado.get("respuesta"),
         "trama_txt": resultado.get("trama_txt"),
         "trama_nombre": resultado.get("trama_nombre"),
-    }), 200  # El éxito/fallo va en "ok"; evitamos 5xx para que el proxy no oculte el mensaje.
+    }), 200
 
 
 @app.route("/api/procesar/<tipo>", methods=["POST"])
