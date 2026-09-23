@@ -249,6 +249,10 @@ def _mensaje_amigable(exc):
         return "Faltan filas de datos en el Excel (revisa que la hoja tenga registros)."
     if isinstance(exc, FileNotFoundError):
         return "No se pudo leer el archivo. Vuelve a subirlo."
+    if isinstance(exc, ValueError):
+        # Los ValueError propios (validar_empresa, exigir_datos, exigir_referencias...)
+        # ya traen un mensaje claro en español: se muestran tal cual, sin prefijo.
+        return texto
     return f"{tipo}: {texto}"
 
 

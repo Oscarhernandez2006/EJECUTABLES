@@ -70,6 +70,7 @@ class Req:
         self.Req["Número de documento"] = self.Req["NUM_DOC"]
         map_ref_siesa = dict(zip(self.EQUIVALENCIA["CODIGO"], self.EQUIVALENCIA["REF_SIESA"]))
         self.Req["REF_SIESA"] = self.Req["CODIGO"].map(map_ref_siesa)
+        siesa.exigir_referencias(self.Req)
         self.Req["UM"] = siesa.mapear_unidad_medida(self.EQUIVALENCIA, self.Req["CODIGO"])
         self.Req2 = self.Req.copy()
         self.Req.drop_duplicates("Número de documento", keep="first", inplace=True)

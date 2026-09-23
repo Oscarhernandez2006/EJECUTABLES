@@ -70,6 +70,31 @@ def exigir_datos(df, mensaje):
         raise ValueError(mensaje)
 
 
+def exigir_referencias(df, col_codigo="CODIGO", col_ref="REF_SIESA", col_producto="PRODUCTO"):
+    """Valida que todo ``col_codigo`` haya encontrado su ``REF_SIESA`` en EQUIVALENTES.
+
+    Si un código no está mapeado en la hoja EQUIVALENTES, el registro se manda a
+    Siesa con la referencia del item en blanco (texto literal "nan"), y Siesa lo
+    rechaza con un mensaje engañoso ("la unidad de medida no existe") en vez de
+    avisar que el item no existe. Se corta antes con un mensaje claro.
+    """
+    faltantes = df[df[col_ref].isna()]
+    if faltantes.empty:
+        return
+    vistos = {}
+    for _, fila in faltantes.iterrows():
+        codigo_item = fila[col_codigo]
+        if codigo_item in vistos:
+            continue
+        producto = fila[col_producto] if col_producto in df.columns else ""
+        vistos[codigo_item] = f"{codigo_item} ({producto})" if producto else str(codigo_item)
+    raise ValueError(
+        "Estos códigos no están en la hoja EQUIVALENTES (falta REF_SIESA): "
+        + ", ".join(vistos.values())
+        + ". Agrégalos en EQUIVALENTES y vuelve a intentar."
+    )
+
+
 def param_por_nombre(df, texto, col_nombre="PARAMETRO", col_valor="CODIGO_PARAMETRO"):
     """Busca en la hoja PARAMETROS la fila cuyo nombre contenga ``texto``.
 

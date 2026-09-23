@@ -81,6 +81,7 @@ class Ped:
         self.Ped["Número de documento"] = self.Ped.index + 1
         map_ref_siesa = dict(zip(self.EQUIVALENCIA["CODIGO"], self.EQUIVALENCIA["REF_SIESA"]))
         self.Ped["REF_SIESA"] = self.Ped["CODIGO"].map(map_ref_siesa)
+        siesa.exigir_referencias(self.Ped)
         self.Ped["UM"] = siesa.mapear_unidad_medida(self.EQUIVALENCIA, self.Ped["CODIGO"])
         self.Ped2 = self.Ped.copy()
         self.Ped.drop_duplicates(["N.I.T / C.C."], keep="first", inplace=True)
