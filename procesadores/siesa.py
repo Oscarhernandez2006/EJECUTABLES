@@ -170,9 +170,30 @@ def codigo(valor):
     return texto
 
 
+def mapear_unidad_medida(equivalencia_df, codigos, default="kg"):
+    """Unidad de medida por item, tomada de la columna opcional 'UM' de EQUIVALENTES.
+
+    Si la hoja no tiene columna 'UM' o el código no tiene valor, se usa ``default``.
+    Siesa valida el código de unidad en minúscula (ver commit b9e2a59): se normaliza
+    siempre a minúscula para no repetir el error "la unidad de medida no existe".
+    """
+    default = default.strip().lower()
+    if equivalencia_df is None or "UM" not in equivalencia_df.columns:
+        return pd.Series(default, index=codigos.index)
+    mapa = dict(zip(equivalencia_df["CODIGO"], equivalencia_df["UM"]))
+
+    def _valor(codigo_item):
+        valor = mapa.get(codigo_item)
+        if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+            return default
+        texto = str(valor).strip().lower()
+        return texto or default
+
+    return codigos.map(_valor)
+
+
 def filtrar_por_fecha(df, columna, fecha):
     """Filtra ``df`` por ``fecha`` comparando de forma normalizada (AAAAMMDD).
-
     Tolera formatos distintos ('2026-08-07', '20260807', datetime, etc.). Si no
     hay coincidencias, lanza un ``ValueError`` claro listando las fechas que sí
     trae el archivo, para que el usuario sepa qué seleccionar.
