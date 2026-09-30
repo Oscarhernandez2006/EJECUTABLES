@@ -343,6 +343,29 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.progreso { margin-top: 18px; }
+.progreso__head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin-bottom: 6px;
+}
+.progreso__pct { font-weight: 600; color: var(--green-700); }
+.progreso__barra {
+    height: 10px;
+    background: var(--gray-100);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.progreso__relleno {
+    height: 100%;
+    width: 0;
+    background: var(--green-500);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
 /* ---------- Result ---------- */
 .result { border-left: 4px solid var(--gray-200); }
 .result.is-success { border-left-color: var(--green-500); }

@@ -19,5 +19,6 @@ EXPOSE 5000
 
 # Servidor WSGI de producción.
 # timeout alto porque el consumo del servicio SOAP de Siesa puede tardar.
+# gthread: las peticiones largas (envío por lotes con progreso) no bloquean ni matan al worker.
 # access-logfile "-" -> log a stdout con método, ruta y status HTTP (200/400/404/500...) de cada petición.
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 180 --access-logfile - --access-logformat '%(h)s \"%(r)s\" %(s)s %(b)s %(D)sus' app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT} --workers 2 --worker-class gthread --threads 8 --timeout 600 --access-logfile - --access-logformat '%(h)s \"%(r)s\" %(s)s %(b)s %(D)sus' app:app"]

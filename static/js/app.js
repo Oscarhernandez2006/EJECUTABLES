@@ -704,10 +704,10 @@ function setCargando(cargando) {
 async function llamarProceso(url, formData) {
     setCargando(true);
     ocultarResultado();
+    mostrarProgreso(0, "Subiendo archivo…");
 
     try {
-        const resp = await fetch(url, { method: "POST", body: formData });
-        const data = await resp.json();
+        const data = await enviarConProgreso(url, formData);
 
         if (data.trama_txt) {
             descargarTexto(data.trama_nombre, data.trama_txt);
@@ -729,8 +729,79 @@ async function llamarProceso(url, formData) {
     } catch (err) {
         mostrarResultado(false, "Error de conexión", "No se pudo comunicar con el servidor. Intenta nuevamente.");
     } finally {
+        ocultarProgreso();
         setCargando(false);
     }
+}
+
+// ---------- Progreso ----------
+const progreso = document.getElementById("progreso");
+const progresoMensaje = document.getElementById("progresoMensaje");
+const progresoPct = document.getElementById("progresoPct");
+const progresoRelleno = document.getElementById("progresoRelleno");
+
+function mostrarProgreso(pct, mensaje) {
+    const valor = Math.max(0, Math.min(100, Math.round(pct)));
+    progreso.hidden = false;
+    progresoPct.textContent = `${valor}%`;
+    progresoRelleno.style.width = `${valor}%`;
+    if (mensaje) progresoMensaje.textContent = mensaje;
+}
+
+function ocultarProgreso() {
+    progreso.hidden = true;
+    progresoRelleno.style.width = "0";
+}
+
+/**
+ * Envía el formulario con XHR: la subida ocupa el 0-20% de la barra y el
+ * procesamiento (eventos NDJSON del servidor, incluidos los lotes a Siesa) el resto.
+ */
+function enviarConProgreso(url, formData) {
+    const PESO_SUBIDA = 20;
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        let leido = 0;
+        let resultado = null;
+
+        const procesarEventos = () => {
+            const texto = xhr.responseText;
+            const fin = texto.lastIndexOf("\n");
+            if (fin < leido) return;
+            texto.slice(leido, fin).split("\n").forEach((linea) => {
+                if (!linea.trim()) return;
+                let evento;
+                try { evento = JSON.parse(linea); } catch { return; }
+                if (evento.tipo === "progreso") {
+                    mostrarProgreso(PESO_SUBIDA + (evento.pct * (100 - PESO_SUBIDA)) / 100, evento.mensaje);
+                } else if (evento.tipo === "resultado") {
+                    resultado = evento;
+                }
+            });
+            leido = fin + 1;
+        };
+
+        xhr.open("POST", url);
+        xhr.setRequestHeader("Accept", "application/x-ndjson");
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                mostrarProgreso((e.loaded / e.total) * PESO_SUBIDA, "Subiendo archivo…");
+            }
+        };
+        xhr.onprogress = procesarEventos;
+        xhr.onload = () => {
+            procesarEventos();
+            if (resultado) {
+                mostrarProgreso(100, "Completado");
+                resolve(resultado);
+                return;
+            }
+            // Validaciones previas (400/404/501...) responden JSON normal.
+            try { resolve(JSON.parse(xhr.responseText)); } catch { reject(new Error("Respuesta inválida")); }
+        };
+        xhr.onerror = () => reject(new Error("Error de red"));
+        xhr.send(formData);
+    });
 }
 
 function ejecutar() {

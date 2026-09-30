@@ -11,13 +11,17 @@ import inspect
 import json
 import logging
 import os
+import queue
+import shutil
 import tempfile
+import threading
 import traceback
 
-from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from flask import (Flask, Response, abort, jsonify, render_template, request,
+                   send_from_directory, stream_with_context)
 from werkzeug.utils import secure_filename
 
-from procesadores import PROCESADORES
+from procesadores import PROCESADORES, siesa
 from config import (
     EMPRESAS,
     empresa_valida,
@@ -280,8 +284,8 @@ def _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros,
     return modulo.procesar(entrada, work_dir, **kwargs)
 
 
-def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, datos, hojas=None):
-    """Ejecuta un procesador y devuelve la respuesta JSON de Flask."""
+def _resolver_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, datos, hojas=None):
+    """Ejecuta un procesador y devuelve ``(payload, status_http)``."""
     with tempfile.TemporaryDirectory(prefix="siesa_") as work_dir:
         try:
             resultado = _llamar_procesador(modulo, entrada, work_dir, empresa_id, fecha, parametros, datos, hojas)
@@ -303,7 +307,7 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
             # El traceback completo solo se expone si APP_DEBUG=1.
             if DEBUG_ERRORES:
                 payload["detalle"] = detalle
-            return jsonify(payload), status
+            return payload, status
 
     exito = resultado.get("ok", False)
     mensaje = resultado.get("mensaje") or (
@@ -317,7 +321,7 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
     else:
         app.logger.warning("Proceso %s con error [http=200 siesa=%s]: %s", tipo, resultado.get("status_code"), mensaje)
 
-    return jsonify({
+    return {
         "ok": exito,
         "mensaje": mensaje,
         "status_code": resultado.get("status_code"),
@@ -325,7 +329,52 @@ def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, dato
         "respuesta": resultado.get("respuesta"),
         "trama_txt": resultado.get("trama_txt"),
         "trama_nombre": resultado.get("trama_nombre"),
-    }), 200
+    }, 200
+
+
+def _ejecutar_proceso(modulo, tipo, entrada, empresa_id, fecha, parametros, datos, hojas=None, limpiar=None):
+    """Responde en JSON, o en NDJSON con eventos de progreso si el cliente lo pide.
+
+    El modo stream mantiene la conexión viva (progreso + latidos) mientras Siesa
+    responde, así ni el navegador ni el proxy cortan por timeout.
+    """
+    args = (modulo, tipo, entrada, empresa_id, fecha, parametros, datos, hojas)
+    if "application/x-ndjson" not in (request.headers.get("Accept") or ""):
+        try:
+            payload, status = _resolver_proceso(*args)
+        finally:
+            if limpiar:
+                limpiar()
+        return jsonify(payload), status
+
+    eventos = queue.Queue()
+
+    def trabajar():
+        siesa.set_progreso(lambda pct, msg: eventos.put({"tipo": "progreso", "pct": pct, "mensaje": msg}))
+        try:
+            payload, status = _resolver_proceso(*args)
+            eventos.put({"tipo": "resultado", "http_status": status, **payload})
+        finally:
+            siesa.set_progreso(None)
+            if limpiar:
+                limpiar()
+
+    threading.Thread(target=trabajar, daemon=True).start()
+
+    def generar():
+        yield json.dumps({"tipo": "progreso", "pct": 5, "mensaje": "Archivo recibido, procesando…"}) + "\n"
+        while True:
+            try:
+                evento = eventos.get(timeout=10)
+            except queue.Empty:
+                yield json.dumps({"tipo": "latido"}) + "\n"
+                continue
+            yield json.dumps(evento, default=str) + "\n"
+            if evento["tipo"] == "resultado":
+                return
+
+    return Response(stream_with_context(generar()), mimetype="application/x-ndjson",
+                    headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
 
 @app.route("/api/procesar/<tipo>", methods=["POST"])
@@ -455,18 +504,19 @@ def procesar(tipo):
                 "mensaje": f"'{entrada['etiqueta']}': formato no permitido. Sube un Excel (.xlsx, .xlsm, .xls).",
             }), 400
 
-    with tempfile.TemporaryDirectory(prefix="siesa_upload_") as up_dir:
-        rutas = {}
-        for entrada in entradas:
-            archivo = request.files[entrada["clave"]]
-            nombre_seguro = secure_filename(archivo.filename)
-            ruta = os.path.join(up_dir, f"{entrada['clave']}_{nombre_seguro}")
-            archivo.save(ruta)
-            rutas[entrada["clave"]] = ruta
+    up_dir = tempfile.mkdtemp(prefix="siesa_upload_")
+    rutas = {}
+    for entrada in entradas:
+        archivo = request.files[entrada["clave"]]
+        nombre_seguro = secure_filename(archivo.filename)
+        ruta = os.path.join(up_dir, f"{entrada['clave']}_{nombre_seguro}")
+        archivo.save(ruta)
+        rutas[entrada["clave"]] = ruta
 
-        # Procesos de un solo archivo reciben la ruta directa; los de varios, el diccionario.
-        entrada_proc = rutas[entradas[0]["clave"]] if len(entradas) == 1 else rutas
-        return _ejecutar_proceso(modulo, tipo, entrada_proc, empresa_id, fecha, parametros, datos)
+    # Procesos de un solo archivo reciben la ruta directa; los de varios, el diccionario.
+    entrada_proc = rutas[entradas[0]["clave"]] if len(entradas) == 1 else rutas
+    return _ejecutar_proceso(modulo, tipo, entrada_proc, empresa_id, fecha, parametros, datos,
+                             limpiar=lambda: shutil.rmtree(up_dir, ignore_errors=True))
 
 
 @app.errorhandler(413)

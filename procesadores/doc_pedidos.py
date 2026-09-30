@@ -24,6 +24,8 @@ PUNTO_ENVIO = "000"
 CO = "301"
 BODEGA = "30101"
 UN = "003"
+# Debe coincidir con compromisos_pedidos para que lo comprometido cuadre con lo pedido.
+DECIMALES_KG = 2
 
 
 class DocPedidos:
@@ -60,14 +62,16 @@ class DocPedidos:
         self.data1["REF"] = self.data1["TIPO"].map(mapeo)
 
     def dataframe(self):
-        self.data1 = self.data1[self.data1["NIT CLIENTE "].notna()]
-        self.data1 = self.data1[self.data1["REMISION"].notna()]
+        self.data1 = siesa.filtrar_pedidos(self.data1, self.fecha)
+        siesa.exigir_referencias(self.data1, col_codigo="TIPO", col_ref="REF",
+                                 origen="el archivo CODIGO SIESA.xlsx")
+        siesa.exigir_columna_positiva(self.data1, "FRÍO(kg)", "Peso FRÍO(kg)")
+        siesa.exigir_columna_positiva(self.data1, "P.VENTA", "Precio de venta (P.VENTA)")
         self.data1["NUMERO_DOC"] = 0
         self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
-        self.data1 = self.data1[self.data1["FECHA PEDIDO SIESA"] == str(self.fecha)]
 
     def dataframe2(self):
-        self.data1["FRÍO(kg)"] = round(self.data1["FRÍO(kg)"], 1)
+        self.data1["FRÍO(kg)"] = pd.to_numeric(self.data1["FRÍO(kg)"]).round(DECIMALES_KG)
         self.data_enc = self.data1.copy()
         self.data_mov = self.data1.copy()
         self.data_enc.drop_duplicates(subset="REMISION", inplace=True)
@@ -87,6 +91,8 @@ class DocPedidos:
         t = 7
         ci = 1
         ti = 10
+        encabezados = {}
+        detalles = {}
 
         # Encabezado del pedido (registro 430).
         for _, fila in self.data_enc.iterrows():
@@ -142,7 +148,7 @@ class DocPedidos:
                 + "{:50}".format(".")
                 + "{:0>1.0f}".format(0)
             )
-            self.d0.append(row)
+            encabezados[fila["REMISION"]] = row
             c += 1
 
         # Detalle del pedido (registro 431).
@@ -183,9 +189,14 @@ class DocPedidos:
                 + "{:0>1.0f}".format(5)
                 + "{:0>1.0f}".format(2)
             )
-            self.d0.append(row)
+            detalles.setdefault(fila["REMISION"], []).append(row)
             ci += 1
             c += 1
+
+        # Un bloque por pedido (encabezado + su detalle) para enviarlo por lotes.
+        self.bloques = [[enc] + detalles.get(rem, []) for rem, enc in encabezados.items()]
+        for bloque in self.bloques:
+            self.d0.extend(bloque)
 
         self.trama_final = siesa.generar_consecutivo(c) + "99990001" + "{:0>3.0f}".format(self.CIA)
         self.d0.append(self.trama_final)
@@ -199,17 +210,14 @@ def procesar(excel_path, work_dir, empresa_id=None, fecha=None, parametros=None,
         raise ValueError("Debes indicar la fecha del pedido (AAAAMMDD).")
 
     proc = DocPedidos(excel_path, work_dir, empresa_id, fecha, parametros, datos)
+    siesa.reportar_progreso(10, "Leyendo y validando el archivo…")
     proc.mapeo_referencias()
     proc.dataframe()
     proc.dataframe2()
     proc.generar_trama()
 
-    txt_path = os.path.join(work_dir, "PedidoVentaCanal.txt")
-    xml_path = os.path.join(work_dir, "doc.xml")
-
-    siesa.guardar_trama(proc.d0, txt_path)
-    siesa.generar_xml(txt_path, xml_path, proc.CIA_CONEXION, USER, PASSWORD)
-    resultado = siesa.consumir_servicio_web(xml_path)
+    siesa.guardar_trama(proc.d0, os.path.join(work_dir, "PedidoVentaCanal.txt"))
+    resultado = siesa.enviar_por_lotes(proc.bloques, proc.CIA, proc.CIA_CONEXION, work_dir, USER, PASSWORD)
 
     resultado["registros"] = len(proc.data_mov)
     return resultado

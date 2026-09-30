@@ -49,8 +49,8 @@ class ImpuestosSacrificio:
             siesa.validar_empresa(self.CIA, empresa_id)
         self.CIA_CONEXION = str(int(self.CIA))
 
-        self.data1 = pd.read_excel(
-            analisis_path, sheet_name="CANAL",
+        self.data1 = siesa.leer_datos_canal(
+            None, analisis_path,
             dtype={"NIT": str, "FECHA SACRIFICIO SIESA": str},
             skiprows=6,
         )

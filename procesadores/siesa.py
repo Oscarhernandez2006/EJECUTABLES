@@ -6,8 +6,10 @@ construcción del XML de importación y consumo del servicio SOAP.
 
 import os
 import re
+import threading
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+import openpyxl
 import pandas as pd
 import requests
 
@@ -26,6 +28,22 @@ SIESA_PASSWORD = os.getenv("SIESA_PASSWORD", "Santacruz2026*")
 # (cargue de lotes, canales, retomas, documentos de pedidos).
 RUTA_PROYECTO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARCHIVO_REFERENCIAS = os.path.join(RUTA_PROYECTO, "CODIGO SIESA.xlsx")
+
+# Máximo de líneas por petición a Siesa al enviar por lotes (sin inicio/fin).
+LOTE_LINEAS = int(os.getenv("SIESA_LOTE_LINEAS", "150"))
+
+# Callback de progreso del hilo actual (lo fija app.py al ejecutar en modo stream).
+_contexto = threading.local()
+
+
+def set_progreso(callback):
+    _contexto.progreso = callback
+
+
+def reportar_progreso(pct, mensaje):
+    callback = getattr(_contexto, "progreso", None)
+    if callback:
+        callback(int(pct), mensaje)
 
 
 def validar_empresa(cia_excel, empresa_id):
@@ -70,7 +88,8 @@ def exigir_datos(df, mensaje):
         raise ValueError(mensaje)
 
 
-def exigir_referencias(df, col_codigo="CODIGO", col_ref="REF_SIESA", col_producto="PRODUCTO"):
+def exigir_referencias(df, col_codigo="CODIGO", col_ref="REF_SIESA", col_producto="PRODUCTO",
+                       origen="la hoja EQUIVALENTES"):
     """Valida que todo ``col_codigo`` haya encontrado su ``REF_SIESA`` en EQUIVALENTES.
 
     Si un código no está mapeado en la hoja EQUIVALENTES, el registro se manda a
@@ -86,13 +105,49 @@ def exigir_referencias(df, col_codigo="CODIGO", col_ref="REF_SIESA", col_product
         codigo_item = fila[col_codigo]
         if codigo_item in vistos:
             continue
-        producto = fila[col_producto] if col_producto in df.columns else ""
+        producto = fila[col_producto] if col_producto in df.columns and col_producto != col_codigo else ""
         vistos[codigo_item] = f"{codigo_item} ({producto})" if producto else str(codigo_item)
     raise ValueError(
-        "Estos códigos no están en la hoja EQUIVALENTES (falta REF_SIESA): "
+        f"Estos códigos no están en {origen} (falta la referencia Siesa): "
         + ", ".join(vistos.values())
-        + ". Agrégalos en EQUIVALENTES y vuelve a intentar."
+        + f". Agrégalos en {origen} y vuelve a intentar."
     )
+
+
+def filtrar_pedidos(df, fecha):
+    """Canales con pedido (NIT CLIENTE y REMISION) de la fecha indicada.
+
+    Doc. Pedidos y Compromisos deben tomar exactamente las mismas filas: se busca
+    primero por FECHA PEDIDO SIESA y, si no hay coincidencias, por FECHA SACRIFICIO
+    SIESA, así el usuario puede escribir cualquiera de las dos fechas.
+    """
+    base = df[df["NIT CLIENTE "].notna() & df["REMISION"].notna()]
+    if base.empty:
+        raise ValueError(
+            "El archivo no tiene canales con pedido: las columnas 'NIT CLIENTE' y 'REMISION' "
+            "de la hoja CANAL están vacías. Diligencia cliente, sucursal, precio y fecha de pedido."
+        )
+    objetivo = norm_fecha(fecha)
+    for columna in ("FECHA PEDIDO SIESA", "FECHA SACRIFICIO SIESA"):
+        if columna in base.columns:
+            filtrado = base[base[columna].map(norm_fecha) == objetivo]
+            if not filtrado.empty:
+                return filtrado.copy()
+    disponibles = sorted({norm_fecha(v) for v in base.get("FECHA PEDIDO SIESA", pd.Series()).dropna()})
+    raise ValueError(
+        f"No hay canales con pedido para la fecha {objetivo}. "
+        f"Fechas de pedido en el archivo: {', '.join(disponibles) or 'ninguna'}."
+    )
+
+
+def exigir_columna_positiva(df, columna, descripcion, col_id="REMISION"):
+    """Corta con un mensaje claro si ``columna`` viene vacía o en cero en alguna fila."""
+    valores = pd.to_numeric(df[columna], errors="coerce")
+    malas = df[valores.isna() | (valores <= 0)]
+    if malas.empty:
+        return
+    ids = ", ".join(str(codigo(v)) for v in dict.fromkeys(malas[col_id]))
+    raise ValueError(f"{descripcion} vacío o en cero para {col_id}: {ids}. Corrígelo en la hoja CANAL.")
 
 
 def param_por_nombre(df, texto, col_nombre="PARAMETRO", col_valor="CODIGO_PARAMETRO"):
@@ -113,6 +168,43 @@ def _normalizar_hoja(nombre):
     return re.sub(r"[\s_]+", " ", str(nombre)).strip().upper()
 
 
+def ultima_fila_con_datos(excel_path, hoja, margen_vacio=1000):
+    """Número (1-based) de la última fila con datos de ``hoja``, o ``None`` si no se puede leer.
+
+    Hay plantillas con formato aplicado hasta ~1.000.000 de filas: pandas las recorre
+    todas (~100 s) aunque solo 80 tengan datos. Se corta tras ``margen_vacio`` filas vacías.
+    """
+    try:
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+    except Exception:  # noqa: BLE001 - .xls u otro formato: se lee sin límite
+        return None
+    try:
+        real = next((h for h in wb.sheetnames if _normalizar_hoja(h) == _normalizar_hoja(hoja)), None)
+        if real is None:
+            return None
+        ultima, vacias = 0, 0
+        for i, fila in enumerate(wb[real].iter_rows(values_only=True), start=1):
+            if any(v not in (None, "") for v in fila):
+                ultima, vacias = i, 0
+            else:
+                vacias += 1
+                if vacias >= margen_vacio:
+                    break
+        return ultima
+    finally:
+        wb.close()
+
+
+def _nrows(excel_path, hoja, skiprows):
+    """``nrows`` para ``read_excel`` (filas de datos bajo el encabezado) o ``None``."""
+    if not isinstance(skiprows, (int, type(None))):
+        return None
+    ultima = ultima_fila_con_datos(excel_path, hoja)
+    if ultima is None:
+        return None
+    return max(ultima - (skiprows or 0) - 1, 0)
+
+
 def leer_hoja(excel_path, nombre, dtype=None, **kwargs):
     """Lee una hoja tolerando variantes de nombre (``PARAMETROS ITEMS`` vs ``PARAMETROS_ITEMS``).
 
@@ -128,6 +220,8 @@ def leer_hoja(excel_path, nombre, dtype=None, **kwargs):
         raise ValueError(
             f"No se encontró la hoja «{nombre}» en el Excel. Hojas disponibles: {disponibles}."
         )
+    if "nrows" not in kwargs:
+        kwargs["nrows"] = _nrows(excel_path, real, kwargs.get("skiprows"))
     return pd.read_excel(xl, sheet_name=real, dtype=dtype, **kwargs)
 
 
@@ -142,7 +236,8 @@ def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL", c
     if datos is not None:
         df = pd.DataFrame(datos)
     else:
-        df = pd.read_excel(excel_path, sheet_name=sheet, dtype=dtype, skiprows=skiprows)
+        df = pd.read_excel(excel_path, sheet_name=sheet, dtype=dtype, skiprows=skiprows,
+                           nrows=_nrows(excel_path, sheet, skiprows))
     return alinear_columnas(df, columnas)
 
 
@@ -318,6 +413,9 @@ def consumir_servicio_web(xml_path, url=URL_SERVICIO):
     with open(xml_path, "r") as f:
         xml_content = f.read()
 
+    if not getattr(_contexto, "en_lotes", False):
+        reportar_progreso(50, "Enviando a Siesa…")
+
     soap_body = """
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
        <soapenv:Header/>
@@ -380,6 +478,69 @@ def consumir_servicio_web(xml_path, url=URL_SERVICIO):
         "respuesta": texto,
         "mensaje": mensaje.strip(),
         "error": hay_error,
+    }
+
+
+def enviar_por_lotes(bloques, cia, cia_conexion, work_dir, usuario=None, clave=None, max_lineas=None):
+    """Envía la trama a Siesa en varias peticiones cortas en vez de una sola.
+
+    ``bloques`` es una lista de listas de líneas; cada bloque es un documento
+    completo (encabezado + detalle) y nunca se parte entre dos lotes. Cada lote
+    se renumera y lleva su propio inicio/fin. Reporta el avance con
+    ``reportar_progreso`` y devuelve un resultado consolidado.
+    """
+    max_lineas = max_lineas or LOTE_LINEAS
+    lotes, actual = [], []
+    for bloque in bloques:
+        if actual and len(actual) + len(bloque) > max_lineas:
+            lotes.append(actual)
+            actual = []
+        actual.extend(bloque)
+    if actual:
+        lotes.append(actual)
+
+    cia_txt = "{:0>3.0f}".format(int(cia))
+    total = len(lotes)
+    resultados = []
+    _contexto.en_lotes = True
+    try:
+        for i, lineas in enumerate(lotes, start=1):
+            reportar_progreso(20 + 75 * (i - 1) / total, f"Enviando lote {i} de {total} a Siesa…")
+            trama = [generar_consecutivo(1) + "00000001" + cia_txt]
+            trama += [generar_consecutivo(n) + linea[7:] for n, linea in enumerate(lineas, start=2)]
+            trama.append(generar_consecutivo(len(lineas) + 2) + "99990001" + cia_txt)
+
+            txt_path = os.path.join(work_dir, f"lote_{i}.txt")
+            xml_path = os.path.join(work_dir, f"lote_{i}.xml")
+            guardar_trama(trama, txt_path)
+            generar_xml(txt_path, xml_path, cia_conexion, usuario, clave)
+            resultados.append(consumir_servicio_web(xml_path))
+    finally:
+        _contexto.en_lotes = False
+
+    reportar_progreso(97, "Consolidando la respuesta de Siesa…")
+    return _combinar_resultados(resultados)
+
+
+def _combinar_resultados(resultados):
+    if len(resultados) == 1:
+        return resultados[0]
+    total = len(resultados)
+    fallidos = [(i, r) for i, r in enumerate(resultados, start=1) if not r.get("ok")]
+    if fallidos:
+        mensaje = f"{total - len(fallidos)} de {total} lote(s) registrados en Siesa. " + " | ".join(
+            f"Lote {i}: {r.get('mensaje', '')}" for i, r in fallidos
+        )
+    else:
+        mensaje = f"Importación registrada correctamente en Siesa ({total} lotes)."
+    return {
+        "ok": not fallidos,
+        "status_code": resultados[-1].get("status_code"),
+        "respuesta": "\n\n".join(
+            f"--- Lote {i} ---\n{r.get('respuesta', '')}" for i, r in enumerate(resultados, start=1)
+        ),
+        "mensaje": mensaje,
+        "error": bool(fallidos),
     }
 
 

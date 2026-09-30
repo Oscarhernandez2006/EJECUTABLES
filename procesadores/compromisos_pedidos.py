@@ -10,6 +10,7 @@ import os
 import pandas as pd
 
 from . import siesa
+from .doc_pedidos import DECIMALES_KG
 
 USER = siesa.SIESA_USER
 PASSWORD = siesa.SIESA_PASSWORD
@@ -53,14 +54,15 @@ class CompromisosPedidos:
         self.data1["REF"] = self.data1["TIPO"].map(mapeo)
 
     def dataframe(self):
-        self.data1 = self.data1[self.data1["NIT CLIENTE "].notna()]
-        self.data1 = self.data1[self.data1["REMISION"].notna()]
+        self.data1 = siesa.filtrar_pedidos(self.data1, self.fecha)
+        siesa.exigir_referencias(self.data1, col_codigo="TIPO", col_ref="REF",
+                                 origen="el archivo CODIGO SIESA.xlsx")
+        siesa.exigir_columna_positiva(self.data1, "FRÍO(kg)", "Peso FRÍO(kg)")
         self.data1["NUMERO_DOC"] = 0
         self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
-        self.data1 = self.data1[self.data1["FECHA SACRIFICIO SIESA"] == str(self.fecha)]
 
     def dataframe2(self):
-        self.data1["FRÍO(kg)"] = round(self.data1["FRÍO(kg)"], 2)
+        self.data1["FRÍO(kg)"] = pd.to_numeric(self.data1["FRÍO(kg)"]).round(DECIMALES_KG)
         self.data_compromisos = self.data1.copy()
 
     def generar_trama(self):
@@ -70,6 +72,7 @@ class CompromisosPedidos:
 
         c = 2
         t = 7
+        por_remision = {}
 
         for _, fila in self.data_compromisos.iterrows():
             row = (
@@ -94,8 +97,12 @@ class CompromisosPedidos:
                 + "{:0>20.4f}".format(0)
                 + "{:0>10.0f}".format(c - 1)
             )
-            self.d0.append(row)
+            por_remision.setdefault(fila["REMISION"], []).append(row)
             c += 1
+
+        self.bloques = list(por_remision.values())
+        for bloque in self.bloques:
+            self.d0.extend(bloque)
 
         self.trama_final = siesa.generar_consecutivo(c) + "99990001" + "{:0>3.0f}".format(self.CIA)
         self.d0.append(self.trama_final)
@@ -109,17 +116,14 @@ def procesar(excel_path, work_dir, empresa_id=None, fecha=None, parametros=None,
         raise ValueError("Debes indicar la fecha del pedido (AAAAMMDD).")
 
     proc = CompromisosPedidos(excel_path, work_dir, empresa_id, fecha, parametros, datos)
+    siesa.reportar_progreso(10, "Leyendo y validando el archivo…")
     proc.mapeo_referencias()
     proc.dataframe()
     proc.dataframe2()
     proc.generar_trama()
 
-    txt_path = os.path.join(work_dir, "Compromiso_PedidoVentaCanal.txt")
-    xml_path = os.path.join(work_dir, "doc.xml")
-
-    siesa.guardar_trama(proc.d0, txt_path)
-    siesa.generar_xml(txt_path, xml_path, proc.CIA_CONEXION, USER, PASSWORD)
-    resultado = siesa.consumir_servicio_web(xml_path)
+    siesa.guardar_trama(proc.d0, os.path.join(work_dir, "Compromiso_PedidoVentaCanal.txt"))
+    resultado = siesa.enviar_por_lotes(proc.bloques, proc.CIA, proc.CIA_CONEXION, work_dir, USER, PASSWORD)
 
     resultado["registros"] = len(proc.data_compromisos)
     return resultado
