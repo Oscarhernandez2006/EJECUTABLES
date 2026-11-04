@@ -150,6 +150,83 @@ def exigir_columna_positiva(df, columna, descripcion, col_id="REMISION"):
     raise ValueError(f"{descripcion} vacío o en cero para {col_id}: {ids}. Corrígelo en la hoja CANAL.")
 
 
+def preparar_pedidos(df, fecha, decimales_kg, empresa_id):
+    """Prepara las mismas filas y números de movimiento para registros 431 y 405."""
+    df = filtrar_pedidos(df, fecha)
+    if "CIA" in df.columns:
+        for cia in df["CIA"].unique():
+            validar_empresa(cia, empresa_id)
+    exigir_referencias(df, col_codigo="TIPO", col_ref="REF",
+                      origen="el archivo CODIGO SIESA.xlsx")
+    remisiones = pd.to_numeric(df["REMISION"], errors="coerce")
+    if not (remisiones.between(1, 99999999) & remisiones.eq(remisiones.round())).all():
+        raise ValueError("REMISION debe ser un entero positivo de hasta 8 dígitos en la hoja CANAL.")
+    df["REMISION"] = remisiones.astype("int64")
+    for campo in ("NIT CLIENTE ", "SUCURSAL"):
+        if campo in df.columns:
+            df[campo] = df[campo].map(codigo)
+    if not df["NIT CLIENTE "].str.len().between(1, 15).all():
+        raise ValueError("NIT CLIENTE debe contener entre 1 y 15 caracteres en la hoja CANAL.")
+    if "FECHA SACRIFICIO SIESA" in df.columns:
+        df["FECHA SACRIFICIO SIESA"] = df["FECHA SACRIFICIO SIESA"].map(norm_fecha)
+        if pd.to_datetime(df["FECHA SACRIFICIO SIESA"], format="%Y%m%d", errors="coerce").isna().any():
+            raise ValueError("FECHA SACRIFICIO SIESA debe contener una fecha válida AAAAMMDD en CANAL.")
+
+    exigir_columna_positiva(df, "FRÍO(kg)", "Peso FRÍO(kg)")
+    df["FRÍO(kg)"] = pd.to_numeric(df["FRÍO(kg)"]).round(decimales_kg)
+    exigir_columna_positiva(df, "FRÍO(kg)", "Peso FRÍO(kg) después de redondear")
+    if df["FRÍO(kg)"].isin([float("inf"), -float("inf")]).any():
+        raise ValueError("Peso FRÍO(kg) debe ser finito en la hoja CANAL.")
+    exigir_lotes_pedidos(df)
+
+    for columnas, campos in (
+        (["REMISION"], ["NIT CLIENTE ", "SUCURSAL"]),
+        (["REMISION", "REF"], ["FECHA SACRIFICIO SIESA", "P.VENTA"]),
+    ):
+        for campo in campos:
+            if campo not in df.columns:
+                continue
+            valores = df[campo].map(codigo)
+            distintos = df.assign(_valor=valores).groupby(columnas)["_valor"].transform("nunique")
+            malas = df[distintos > 1]
+            if not malas.empty:
+                ids = ", ".join(map(str, malas["REMISION"].unique()))
+                raise ValueError(
+                    f"{campo.strip()} tiene valores diferentes dentro del mismo pedido "
+                    f"o referencia. REMISION: {ids}. Corrígelo antes de agrupar el pedido."
+                )
+
+    # Debe coincidir con el orden del groupby REMISION/REF del registro 431,
+    # no con el índice de Excel ni con el consecutivo de líneas del archivo.
+    df["NUM_MOVIMIENTO"] = df.groupby(["REMISION", "REF"], sort=True).ngroup() + 1
+    return df
+
+
+def exigir_lotes_pedidos(df):
+    """Conserva LOTE completo y rechaza códigos que puedan comprometer otro gancho."""
+    lotes = df["LOTE"].map(lambda v: "" if pd.isna(v) else str(v).strip())
+    validos = lotes.str.fullmatch(r"[^\s-]+-[^\s-]+") & lotes.str.len().le(15)
+    if not validos.all():
+        ids = ", ".join(map(str, df.loc[~validos, "REMISION"].unique()))
+        raise ValueError(
+            "LOTE debe contener el código completo lote-gancho, sin espacios y de hasta "
+            f"15 caracteres; no se recorta ni se genera automáticamente. REMISION: {ids}."
+        )
+    for columna, parte in (("LOTE FRIGOAPP", 0), ("GANCHO", 1)):
+        if columna not in df.columns:
+            continue
+        esperado = df[columna].map(codigo)
+        recibido = lotes.str.split("-").str[parte]
+        malas = df[esperado.ne("") & recibido.ne(esperado)]
+        if not malas.empty:
+            ids = ", ".join(map(str, malas["REMISION"].unique()))
+            raise ValueError(
+                f"LOTE no coincide con {columna} de su misma fila en CANAL. "
+                f"REMISION: {ids}. Verifica el lote-gancho; no se reemplaza por otro canal."
+            )
+    df["LOTE"] = lotes
+
+
 def param_por_nombre(df, texto, col_nombre="PARAMETRO", col_valor="CODIGO_PARAMETRO"):
     """Busca en la hoja PARAMETROS la fila cuyo nombre contenga ``texto``.
 

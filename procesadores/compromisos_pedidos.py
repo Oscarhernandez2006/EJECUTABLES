@@ -2,7 +2,8 @@
 
 Portado desde ``7.B_COMPROMISOS_PEDIDOS.py``. Genera los compromisos de entrega
 de los pedidos (registros 405) a partir de la hoja CANAL de ANALISIS.xlsx y la
-tabla de referencias FRIGOAPP -> SIESA. Conserva intacta la lógica de trama.
+tabla de referencias FRIGOAPP -> SIESA. Cada lote-gancho apunta al movimiento
+agrupado de su pedido, no al consecutivo de filas del Excel.
 """
 
 import os
@@ -32,9 +33,10 @@ class CompromisosPedidos:
         self.data1 = siesa.leer_datos_canal(
             datos, excel_path,
             dtype={"NIT": str, "FECHA SACRIFICIO SIESA": str, "FECHA PEDIDO SIESA": str,
-                   "SUCURSAL": str, "NIT CLIENTE ": str},
+                   "SUCURSAL": str, "NIT CLIENTE ": str, "LOTE": str},
             skiprows=6,
         )
+        siesa.exigir_datos(self.data1, "La hoja CANAL no tiene datos para generar compromisos.")
         # La compañía se toma de la hoja CANAL (o del selector en modo manual).
         if parametros is not None:
             self.CIA = int(empresa_id)
@@ -54,15 +56,9 @@ class CompromisosPedidos:
         self.data1["REF"] = self.data1["TIPO"].map(mapeo)
 
     def dataframe(self):
-        self.data1 = siesa.filtrar_pedidos(self.data1, self.fecha)
-        siesa.exigir_referencias(self.data1, col_codigo="TIPO", col_ref="REF",
-                                 origen="el archivo CODIGO SIESA.xlsx")
-        siesa.exigir_columna_positiva(self.data1, "FRÍO(kg)", "Peso FRÍO(kg)")
-        self.data1["NUMERO_DOC"] = 0
-        self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
+        self.data1 = siesa.preparar_pedidos(self.data1, self.fecha, DECIMALES_KG, self.CIA)
 
     def dataframe2(self):
-        self.data1["FRÍO(kg)"] = pd.to_numeric(self.data1["FRÍO(kg)"]).round(DECIMALES_KG)
         self.data_compromisos = self.data1.copy()
 
     def generar_trama(self):
@@ -95,7 +91,7 @@ class CompromisosPedidos:
                 + "{:<4}".format("kg")
                 + "{:0>20.4f}".format(fila["FRÍO(kg)"])
                 + "{:0>20.4f}".format(0)
-                + "{:0>10.0f}".format(c - 1)
+                + "{:0>10.0f}".format(fila["NUM_MOVIMIENTO"])
             )
             por_remision.setdefault(fila["REMISION"], []).append(row)
             c += 1

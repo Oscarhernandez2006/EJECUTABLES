@@ -17,6 +17,42 @@ para usuarios con permiso.
 
 Todos usan además las hojas `EQUIVALENTES` y `PARAMETROS`.
 
+### Documentos: Doc. Pedidos y Compromisos Pedidos
+
+Estos dos procesos leen `ANALISIS.xlsx`, hoja `CANAL`, con encabezados en la
+fila 7. Usan la misma empresa, fecha y selección de canales con cliente y
+remisión. Buscan primero por `FECHA PEDIDO SIESA`; si no hay coincidencias,
+buscan por `FECHA SACRIFICIO SIESA`.
+
+- **Doc. Pedidos** genera un encabezado 430 por remisión y un movimiento 431
+  por remisión/referencia, sumando los kilos de los canales de esa referencia.
+- **Compromisos Pedidos** genera un registro 405 por canal. Cada registro conserva
+  el `LOTE` completo de su misma fila (por ejemplo, `28746-473`) y apunta al
+  número de movimiento 431 de su remisión/referencia. Varios ganchos pueden
+  apuntar al mismo movimiento; el número de movimiento **no** es el gancho ni
+  el consecutivo de fila del Excel.
+- Ambos redondean los kilos por canal a dos decimales antes de sumar. La
+  numeración de movimientos se comparte y no cambia al dividir el envío en lotes.
+- Se rechazan lotes vacíos, sin formato lote-gancho o mayores de 15 caracteres:
+  ya no se recortan. Si están diligenciados `GANCHO` o `LOTE FRIGOAPP`, deben
+  coincidir con `LOTE` en esa misma fila; nunca se reconstruye usando otro canal.
+- Se rechazan clientes/sucursales distintos en una remisión, o precios/fechas
+  distintos dentro de una misma remisión/referencia, para no tomar silenciosamente
+  el primer valor al agrupar. Corrige o separa esos pedidos antes de enviarlos.
+
+Ejecuta primero **Doc. Pedidos** y después **Compromisos Pedidos**, con el mismo
+archivo, empresa y fecha. No vuelvas a crear pedidos que ya existen sin
+revisarlos en Siesa. Esta corrección no modifica documentos previamente cargados.
+
+Pruebas locales, sin enviar a Siesa:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+La prueba con el archivo de ejemplo completa los datos de pedido únicamente
+en una copia temporal; no modifica `ANALISIS.xlsx`.
+
 ## Acceso
 
 - **Desde SCTOOLS (recomendado)**: SCTOOLS -> Aplicaciones -> Ejecutables

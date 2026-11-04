@@ -2,7 +2,8 @@
 
 Portado desde ``7.A_DOC_PEDIDOS.py``. Genera el pedido de venta de canales
 (registros 430 y 431) a partir de la hoja CANAL de ANALISIS.xlsx y la tabla de
-referencias FRIGOAPP -> SIESA. Conserva intacta la lógica de trama.
+referencias FRIGOAPP -> SIESA. Comparte la numeración de movimientos con los
+compromisos de cada lote-gancho.
 """
 
 import os
@@ -40,9 +41,10 @@ class DocPedidos:
         self.data1 = siesa.leer_datos_canal(
             datos, excel_path,
             dtype={"NIT": str, "FECHA SACRIFICIO SIESA": str, "FECHA PEDIDO SIESA": str,
-                   "SUCURSAL": str, "NIT CLIENTE ": str},
+                   "SUCURSAL": str, "NIT CLIENTE ": str, "LOTE": str},
             skiprows=6,
         )
+        siesa.exigir_datos(self.data1, "La hoja CANAL no tiene datos para generar pedidos.")
         # La compañía se toma de la hoja CANAL (o del selector en modo manual).
         if parametros is not None:
             self.CIA = int(empresa_id)
@@ -62,16 +64,15 @@ class DocPedidos:
         self.data1["REF"] = self.data1["TIPO"].map(mapeo)
 
     def dataframe(self):
-        self.data1 = siesa.filtrar_pedidos(self.data1, self.fecha)
-        siesa.exigir_referencias(self.data1, col_codigo="TIPO", col_ref="REF",
-                                 origen="el archivo CODIGO SIESA.xlsx")
-        siesa.exigir_columna_positiva(self.data1, "FRÍO(kg)", "Peso FRÍO(kg)")
+        self.data1 = siesa.preparar_pedidos(self.data1, self.fecha, DECIMALES_KG, self.CIA)
+        if not self.data1["SUCURSAL"].str.len().between(1, 3).all():
+            raise ValueError("SUCURSAL debe contener entre 1 y 3 caracteres en la hoja CANAL.")
         siesa.exigir_columna_positiva(self.data1, "P.VENTA", "Precio de venta (P.VENTA)")
-        self.data1["NUMERO_DOC"] = 0
-        self.data1["LOTE"] = self.data1["LOTE"].astype(str).str[:15]
+        self.data1["P.VENTA"] = pd.to_numeric(self.data1["P.VENTA"])
+        if self.data1["P.VENTA"].isin([float("inf"), -float("inf")]).any():
+            raise ValueError("Precio de venta (P.VENTA) debe ser finito en la hoja CANAL.")
 
     def dataframe2(self):
-        self.data1["FRÍO(kg)"] = pd.to_numeric(self.data1["FRÍO(kg)"]).round(DECIMALES_KG)
         self.data_enc = self.data1.copy()
         self.data_mov = self.data1.copy()
         self.data_enc.drop_duplicates(subset="REMISION", inplace=True)
@@ -80,6 +81,7 @@ class DocPedidos:
             NIT_CLIENTE=("NIT CLIENTE ", "first"),
             FECHA=("FECHA SACRIFICIO SIESA", "first"),
             PRECIO=("P.VENTA", "first"),
+            NUM_MOVIMIENTO=("NUM_MOVIMIENTO", "first"),
         )
 
     def generar_trama(self):
@@ -89,7 +91,6 @@ class DocPedidos:
 
         c = 2
         t = 7
-        ci = 1
         ti = 10
         encabezados = {}
         detalles = {}
@@ -162,7 +163,7 @@ class DocPedidos:
                 + "{:3}".format(self.CO)
                 + "{:3}".format(TIPO_DOCUMENTO)
                 + "{:0>8.0f}".format(fila["REMISION"])
-                + siesa.generar_cons(ci, ti)
+                + siesa.generar_cons(fila["NUM_MOVIMIENTO"], ti)
                 + "{:0>7.0f}".format(0)
                 + "{:<50}".format(fila["REF"])
                 + "{:20}".format(" ")
@@ -190,7 +191,6 @@ class DocPedidos:
                 + "{:0>1.0f}".format(2)
             )
             detalles.setdefault(fila["REMISION"], []).append(row)
-            ci += 1
             c += 1
 
         # Un bloque por pedido (encabezado + su detalle) para enviarlo por lotes.
