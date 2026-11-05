@@ -55,6 +55,7 @@ DEBUG_ERRORES = os.getenv("APP_DEBUG", "0") == "1"
 
 # Carpeta base del proyecto (donde viven las plantillas Excel).
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PLANTILLAS_DIR = os.path.join(BASE_DIR, "plantillas")
 
 # Límite de tamaño de archivo: 25 MB.
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
@@ -119,6 +120,18 @@ PROCESOS = [
         "entradas": [{"clave": "archivo", "etiqueta": "Archivo de análisis", "archivo": "ANALISIS.xlsx"}],
     },
     # --- Sacrificio / Costos -------------------------------------------------
+    {
+        "id": "taller", "nombre": "Taller", "grupo": "Inventario",
+        "descripcion": "Transformaciones: salidas SAI y entradas EIN con distribución de costos.",
+        "hoja": "Hoja1", "requiere_empresa": True, "requiere_fecha": True,
+        "entradas": [{"clave": "archivo", "etiqueta": "Archivo de taller", "archivo": "Taller.xlsx"}],
+    },
+    {
+        "id": "siinv", "nombre": "Saldos Iniciales Inventarios (SIINV)", "grupo": "Inventario",
+        "descripcion": "Carga saldos iniciales de inventario mediante documentos SIN.",
+        "hoja": "Hoja1", "requiere_empresa": True, "requiere_fecha": True,
+        "entradas": [{"clave": "archivo", "etiqueta": "Saldos iniciales", "archivo": "PLANT3.xlsx"}],
+    },
     {
         "id": "flete_bovino", "nombre": "Flete Bovino", "grupo": "Costos",
         "descripcion": "Factura de fletes de transporte de ganado bovino.", "hoja": "CANAL",
@@ -235,9 +248,9 @@ def descargar_plantilla(tipo, clave):
     if entrada is None:
         abort(404)
     archivo = entrada["archivo"]
-    if not os.path.exists(os.path.join(BASE_DIR, archivo)):
+    if not os.path.exists(os.path.join(PLANTILLAS_DIR, archivo)):
         abort(404)
-    return send_from_directory(BASE_DIR, archivo, as_attachment=True)
+    return send_from_directory(PLANTILLAS_DIR, archivo, as_attachment=True)
 
 
 def _mensaje_amigable(exc):
@@ -438,13 +451,19 @@ def procesar(tipo):
                 registros = hojas_raw.get(hoja["clave"], []) or []
                 filas = []
                 for idx, reg in enumerate(registros, start=1):
-                    valores = {c["clave"]: str(reg.get(c["clave"], "")).strip() for c in hoja["columnas"]}
+                    valores = {
+                        c["clave"]: "" if reg.get(c["clave"]) is None else str(reg[c["clave"]]).strip()
+                        for c in hoja["columnas"]
+                    }
                     if all(v == "" for v in valores.values()):
                         continue  # fila totalmente vacía: se ignora
                     fila = {}
                     for c in hoja["columnas"]:
                         valor = valores[c["clave"]]
                         if valor == "":
+                            if c.get("opcional"):
+                                fila[c["clave"]] = None
+                                continue
                             return jsonify({"ok": False, "mensaje": f"{hoja['nombre']} · fila {idx}: falta '{c['etiqueta']}'."}), 400
                         if c["tipo"] == "number":
                             try:

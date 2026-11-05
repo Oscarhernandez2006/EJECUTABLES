@@ -29,6 +29,8 @@ from . import (
     sobrecostos,
     transferencia_sc,
     precios,
+    taller,
+    siinv,
 )
 
 # Mapa de tipos de proceso disponibles para la interfaz.
@@ -52,6 +54,8 @@ PROCESADORES = {
     "sobrecostos": sobrecostos,
     "transferencia_sc": transferencia_sc,
     "precios": precios,
+    "taller": taller,
+    "siinv": siinv,
 }
 
 __all__ = ["PROCESADORES"]

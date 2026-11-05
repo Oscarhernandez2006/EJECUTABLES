@@ -388,7 +388,7 @@ function renderHojas(proceso) {
         trh.appendChild(thNum);
         hoja.columnas.forEach((c) => {
             const th = document.createElement("th");
-            th.textContent = c.etiqueta;
+            th.textContent = c.etiqueta + (c.opcional ? " (opcional)" : "");
             trh.appendChild(th);
         });
         trh.appendChild(document.createElement("th"));
@@ -490,7 +490,7 @@ function hojasCompletas() {
     const principal = state.proceso.hojas_manuales[0];
     const filas = (state.hojasData || {})[principal.clave] || [];
     return filas.some((fila) =>
-        principal.columnas.every((c) => String(fila[c.clave] ?? "").trim().length > 0)
+        principal.columnas.every((c) => c.opcional || String(fila[c.clave] ?? "").trim().length > 0)
     );
 }
 

@@ -15,7 +15,60 @@ para usuarios con permiso.
 | Requisiciones  | `TRASNFERENCIA` | 440 / 441         |
 | Sobrecostos    | `SOBRECOSTOS`   | 451 / 452         |
 
-Todos usan además las hojas `EQUIVALENTES` y `PARAMETROS`.
+Estos tres procesos usan además las hojas `EQUIVALENTES` y `PARAMETROS`.
+
+### Inventario: Taller y Saldos Iniciales (SIINV)
+
+Disponibles en el grupo **Inventario**, mediante Excel o tablas manuales pegadas
+desde Excel. Ambos requieren empresa y fecha; **la fecha seleccionada en la web
+se aplica a todos los documentos**, reemplazando la columna `FECHA` de la carga.
+La `CIA` del Excel se valida contra la empresa seleccionada.
+
+| Proceso | Plantilla | Hoja / encabezados | Documentos |
+| --- | --- | --- | --- |
+| Taller | `Taller.xlsx` | `Hoja1`, fila 1 | Salida SAI (62/602/04), entrada EIN (61/601/04) |
+| SIINV | `PLANT3.xlsx` | `Hoja1`, fila 1 | SIN (61/601/99) |
+
+Ambos generan encabezados 450 versión 2 y movimientos 470 versión 12. Se
+conservan `CO`, `NUMERO`, `BODEGA`, `REFERENCIA`, `LOTE`, `UM` y `CANT` de cada
+fila; `LOTE` puede quedar vacío cuando no aplica, pero no se recorta si excede
+15 caracteres. Las unidades se envían en minúsculas, como en los demás procesos.
+
+**Taller** exige salidas y entradas con el mismo `CO` y `NUMERO`. Suma el
+`COSTO UNITARIO × CANT` de **todas** las salidas de esa transformación y lo
+distribuye entre las entradas proporcionalmente a `PRECIO DE  VENTA × CANT`.
+El costo unitario de entrada se redondea a dos decimales, como en el original;
+el total reconstruido puede tener diferencias de redondeo. No se toma solo la
+última salida ni se cruzan costos entre centros de operación.
+Las entradas no requieren costo diligenciado y las salidas no requieren precio
+de venta. Las parejas incompletas se rechazan antes del envío.
+
+**SIINV** toma `COSTO_UNITARIO` directamente de cada fila y no realiza reparto
+de costos. Solo admite documentos `SIN`.
+
+En modo Excel se conservan los valores originales de unidad de negocio (`001`)
+y tercero (`900326452` para Taller, `generico` para SIINV). El modo manual permite
+especificarlos. Los documentos se envían por lotes sin partir un documento ni
+separar la salida y entrada de una transformación. El resultado permite descargar
+la trama generada.
+
+Usan la conexión compartida de la web y sus credenciales de entorno
+`SIESA_USER` / `SIESA_PASSWORD`; se pueden sobrescribir por proceso mediante
+`SIESA_TALLER_USER` / `SIESA_TALLER_PASSWORD` y
+`SIESA_SIINV_USER` / `SIESA_SIINV_PASSWORD`. No se reutilizan las credenciales
+personales ni la conexión de pruebas incrustadas en los scripts de escritorio.
+
+### Plantillas y limpieza
+
+Las plantillas descargables están en [plantillas](./plantillas/). Los archivos
+que estaban en la raíz siguen disponibles desde el botón de descarga de cada
+proceso; no eran archivos sin uso. En la raíz se conserva `CODIGO SIESA.xlsx`,
+catálogo FRIGOAPP → Siesa que varios procesadores necesitan en ejecución.
+
+Los programas de la carpeta de entrega `nuevos_ejeuctables` se portaron a
+`procesadores/taller.py`, `procesadores/siinv.py` e
+`inventario_documentos.py`. La carpeta de entrega, sus ejecutables compilados,
+archivos de depuración y copias auxiliares ya no son necesarios para la web.
 
 ### Documentos: Doc. Pedidos y Compromisos Pedidos
 
@@ -73,6 +126,7 @@ EJECUTABLES/
 │   ├── requisiciones.py
 │   └── sobrecostos.py
 ├── templates/index.html      # Interfaz (panel de navegación + carga)
+├── plantillas/               # Plantillas Excel descargables de los procesos
 ├── static/css/styles.css     # Diseño (paleta blanco y verde)
 ├── static/js/app.js          # Lógica de la interfaz
 ├── docker-compose.yml        # Configuración Dokploy + Traefik

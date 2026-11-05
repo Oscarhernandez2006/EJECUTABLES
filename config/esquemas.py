@@ -116,6 +116,14 @@ PARAMETROS_ESQUEMA = {
         {"clave": "FECHA", "etiqueta": "Fecha (AAAAMMDD)", "tipo": "text"},
         {"clave": "TIPO_DOC", "etiqueta": "Tipo de documento", "tipo": "text"},
     ],
+    "taller": [
+        {"clave": "UN", "etiqueta": "Unidad de negocio (001 en el original)", "tipo": "text"},
+        {"clave": "TERCERO", "etiqueta": "Tercero del documento", "tipo": "text"},
+    ],
+    "siinv": [
+        {"clave": "UN", "etiqueta": "Unidad de negocio (001 en el original)", "tipo": "text"},
+        {"clave": "TERCERO", "etiqueta": "Tercero (generico en el original)", "tipo": "text"},
+    ],
 }
 
 # ---- Datos: TODA la hoja CANAL -----------------------------------------------
@@ -338,6 +346,47 @@ HOJAS_MANUALES = {
         ]},
     ],
 }
+
+
+# Se conserva el orden completo de las plantillas para permitir pegado desde Excel.
+_INVENTARIO_COLUMNAS = [
+    {"clave": "CIA", "etiqueta": "CIA (se valida contra la empresa seleccionada)", "tipo": "text"},
+    {"clave": "FECHA", "etiqueta": "Fecha (se usa el selector de fecha)", "tipo": "text"},
+    {"clave": "CO", "etiqueta": "Centro de operación", "tipo": "text"},
+    {"clave": "TIPO_DOC", "etiqueta": "Tipo de documento", "tipo": "text"},
+    {"clave": "NUMERO", "etiqueta": "Número de documento", "tipo": "number"},
+    {"clave": "NATURALEZA", "etiqueta": "Naturaleza (informativa)", "tipo": "text"},
+    {"clave": "LOTE", "etiqueta": "Lote (vacío si no aplica)", "tipo": "text"},
+    {"clave": "REFERENCIA", "etiqueta": "Referencia Siesa", "tipo": "text"},
+    {"clave": "DESCRIPCION", "etiqueta": "Descripción (informativa)", "tipo": "text"},
+    {"clave": "BODEGA", "etiqueta": "Bodega", "tipo": "text"},
+    {"clave": "UM", "etiqueta": "Unidad de medida", "tipo": "text"},
+    {"clave": "CANT", "etiqueta": "Cantidad", "tipo": "number"},
+]
+HOJAS_MANUALES["taller"] = [
+    {"clave": "Hoja1", "nombre": "Taller — salidas SAI y entradas EIN", "columnas": [
+        *_INVENTARIO_COLUMNAS,
+        {"clave": "% PART", "etiqueta": "% participación (informativo)", "tipo": "number"},
+        {"clave": "COSTO UNITARIO", "etiqueta": "Costo unitario (salidas SAI)", "tipo": "number"},
+        {"clave": "COSTO TOTAL", "etiqueta": "Costo total (calculado)", "tipo": "number"},
+        {"clave": "PRECIO DE  VENTA", "etiqueta": "Precio de venta (entradas EIN)", "tipo": "number"},
+        {"clave": "TOTAL VALOR  VENTA", "etiqueta": "Venta total (calculada)", "tipo": "number"},
+        {"clave": "% RENT", "etiqueta": "% rentabilidad (informativo)", "tipo": "number"},
+    ]},
+]
+HOJAS_MANUALES["siinv"] = [
+    {"clave": "Hoja1", "nombre": "Saldos iniciales — documentos SIN", "columnas": [
+        *_INVENTARIO_COLUMNAS,
+        {"clave": "COSTO_UNITARIO", "etiqueta": "Costo unitario", "tipo": "number"},
+    ]},
+]
+for _proceso in ("taller", "siinv"):
+    for _columna in HOJAS_MANUALES[_proceso][0]["columnas"]:
+        if _columna["clave"] in {
+            "CIA", "FECHA", "NATURALEZA", "LOTE", "DESCRIPCION", "% PART",
+            "COSTO TOTAL", "TOTAL VALOR  VENTA", "% RENT",
+        } or (_proceso == "taller" and _columna["clave"] in {"COSTO UNITARIO", "PRECIO DE  VENTA"}):
+            _columna["opcional"] = True
 
 
 def hojas_manuales_de(proceso_id):

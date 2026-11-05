@@ -282,7 +282,7 @@ class PedidosCanalTests(CorrespondenciaMixin, unittest.TestCase):
 class ArchivoAnalisisTests(CorrespondenciaMixin, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.archivo = os.path.join(siesa.RUTA_PROYECTO, "ANALISIS.xlsx")
+        cls.archivo = os.path.join(siesa.RUTA_PROYECTO, "plantillas", "ANALISIS.xlsx")
         if not os.path.exists(cls.archivo):
             raise unittest.SkipTest("No se encuentra el archivo de ejemplo ANALISIS.xlsx.")
         cls.datos = siesa.leer_datos_canal(None, cls.archivo, skiprows=6)

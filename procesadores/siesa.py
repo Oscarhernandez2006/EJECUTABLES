@@ -289,17 +289,17 @@ def leer_hoja(excel_path, nombre, dtype=None, **kwargs):
     bajo; aquí se resuelve el nombre real por coincidencia normalizada. Lanza un
     ``ValueError`` claro con las hojas disponibles si no existe.
     """
-    xl = pd.ExcelFile(excel_path)
-    objetivo = _normalizar_hoja(nombre)
-    real = next((h for h in xl.sheet_names if _normalizar_hoja(h) == objetivo), None)
-    if real is None:
-        disponibles = ", ".join(xl.sheet_names)
-        raise ValueError(
-            f"No se encontró la hoja «{nombre}» en el Excel. Hojas disponibles: {disponibles}."
-        )
-    if "nrows" not in kwargs:
-        kwargs["nrows"] = _nrows(excel_path, real, kwargs.get("skiprows"))
-    return pd.read_excel(xl, sheet_name=real, dtype=dtype, **kwargs)
+    with pd.ExcelFile(excel_path) as xl:
+        objetivo = _normalizar_hoja(nombre)
+        real = next((h for h in xl.sheet_names if _normalizar_hoja(h) == objetivo), None)
+        if real is None:
+            disponibles = ", ".join(xl.sheet_names)
+            raise ValueError(
+                f"No se encontró la hoja «{nombre}» en el Excel. Hojas disponibles: {disponibles}."
+            )
+        if "nrows" not in kwargs:
+            kwargs["nrows"] = _nrows(excel_path, real, kwargs.get("skiprows"))
+        return pd.read_excel(xl, sheet_name=real, dtype=dtype, **kwargs)
 
 
 def leer_datos_canal(datos, excel_path, dtype=None, skiprows=6, sheet="CANAL", columnas=None):
