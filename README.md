@@ -91,12 +91,38 @@ precios consultados, diferenciando el precio de venta editado. El original
 `.xlsm` no se modifica y no se ejecutan ni se copian sus macros. El consolidado
 es temporal en la pestaña; no hay historial persistente en base de datos.
 
-#### Compañía 8: API REST de carnes frías
+#### Consultas REST para todas las compañías
 
-La empresa **Inversiones Serrano Millán (8)** usa consultas GET contra
-`https://apiconsulta.grupo-santacruz.com/carnes-frias`, sin requerir plantillas
-SOAP de lectura. El navegador solo consulta al backend de EJECUTABLES; el token
+El taller usa consultas GET contra
+`https://apiconsulta.grupo-santacruz.com/carnes-frias`, enviando la compañía
+seleccionada (`3`, `4`, `6`, `7` u `8`) en cada petición. La ruta conserva su
+nombre por compatibilidad; no se sustituye la compañía seleccionada por la 8.
+Con la clave de API configurada se usa REST para todas las compañías, sin
+requerir plantillas SOAP de lectura. El navegador solo consulta al backend de EJECUTABLES; el token
 se agrega a `X-API-Key` en el servidor y nunca se envía al navegador ni por URL.
+
+**Integración multicompañía verificada el 23/11/2026:** el recorrido de centros,
+bodegas, listas, productos, lotes y detalle devolvió HTTP 200 para las cinco
+compañías a través del backend local y contra la API publicada, sin escrituras
+en Siesa. El bloqueo previo a compañías distintas de la 8 quedó resuelto en
+el servicio de consultas.
+
+| Compañía | Centros activos | Listas vigentes |
+| --- | --- | --- |
+| 3 Agropecuaria | 3 | 38 |
+| 4 Carnes Santacruz | 40 | 27 |
+| 6 Cristian Serrano | 8 | 6 |
+| 7 Inversiones Serueda | 5 | 3 |
+| 8 Serrano Millán | 3 | 13 |
+
+EJECUTABLES envía siempre `empresa` explícitamente, aunque la API conserve 8
+como valor por defecto cuando no se recibe. Si una respuesta incluye
+`empresa`, debe coincidir con la solicitada; cualquier discrepancia bloquea
+la respuesta. La validación de captura vuelve a comprobar centros, bodegas,
+lotes, costos y existencias de la compañía seleccionada. Un detalle con
+`tiene_costo=false` o `tiene_precio=false` sigue indicando ausencia de datos,
+no un cero válido. Estos conteos corresponden al momento de la verificación
+y pueden cambiar con los catálogos de Siesa.
 
 Configurar en **el contenedor de EJECUTABLES**, además del servidor de la API:
 
@@ -131,7 +157,7 @@ disponible en EJECUTABLES. No incluir el token en archivos versionados.
 
 Los catálogos se leen de `data`; el detalle se recibe como objeto directo.
 La existencia y el costo solo son exactos **hoy**, según la fecha de Colombia
-(UTC-5). En la captura interactiva de la compañía 8 se fija esa fecha y el
+(UTC-5). En la captura interactiva con REST se fija esa fecha y el
 servidor rechaza otra fecha. La importación histórica por Excel no cambia.
 
 `tiene_costo=false` bloquea el uso de un insumo: no se confunde el cero de
@@ -153,7 +179,12 @@ conector 0403 **no está implementada**: crear antes el lote en Siesa; todos los
 endpoints REST usados aquí siguen siendo de solo lectura. El envío SAI/EIN
 conserva el conector de importación existente.
 
-#### Otras compañías: configuración SOAP de lectura
+#### Compatibilidad con consultas SOAP de lectura
+
+Si no se ha configurado clave de API y existen plantillas XML de consulta,
+se conserva el proveedor SOAP. Con una clave configurada tiene prioridad REST
+para cualquier compañía. No se usa SOAP como reemplazo silencioso cuando la
+API rechaza una compañía.
 
 El WSDL del servicio existente publica `EjecutarConsultaXML` con un parámetro
 de texto `pvstrxmlParametros`. **El repositorio no incluye las definiciones XML
@@ -161,8 +192,8 @@ de consultas autorizadas para este tenant de Siesa.** No basta con conocer el
 endpoint SOAP o las credenciales de importación. Hasta obtener y configurar
 esas definiciones, la pantalla muestra **Conexión de lectura pendiente** y no
 habilita el envío interactivo. La conexión real de lectura sigue pendiente de
-verificación con el administrador de Siesa para esas compañías. Esta limitación
-no aplica a la compañía 8, que usa la API REST anterior.
+verificación con el administrador de Siesa cuando se elige este proveedor.
+Esta configuración no aplica al proveedor REST anterior.
 
 Configurar en el entorno del servidor el XML interno completo autorizado para
 cada una de estas variables. No es el sobre SOAP: la aplicación lo construye.

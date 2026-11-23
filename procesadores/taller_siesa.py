@@ -57,8 +57,14 @@ def fecha_hoy():
     return datetime.now(timezone(timedelta(hours=-5))).strftime("%Y%m%d")
 
 
+def proveedor_consultas():
+    if clave_api() or not any(os.getenv("SIESA_TALLER_XML_" + recurso.upper()) for recurso in RECURSOS):
+        return "rest"
+    return "soap"
+
+
 def configuracion(empresa_id=None):
-    if str(empresa_id) == "8":
+    if proveedor_consultas() == "rest":
         return [] if clave_api() else ["SIESA_CONSULTAS_API_KEY o API_KEY"]
     return [recurso for recurso in sorted(RECURSOS)
             if not os.getenv("SIESA_TALLER_XML_" + recurso.upper())]
@@ -92,7 +98,7 @@ def consultar(recurso, filtros):
         raise ValueError("Consulta no permitida.")
     filtros_originales = filtros
     filtros = contexto(filtros)
-    if filtros["empresa"] == "8":
+    if proveedor_consultas() == "rest":
         return consultar_rest(recurso, filtros, filtros_originales=filtros_originales)
     plantilla = os.getenv("SIESA_TALLER_XML_" + recurso.upper())
     if not plantilla:
@@ -150,7 +156,7 @@ def consultar_rest(recurso, filtros, filtros_originales=None):
     if not clave:
         raise ConsultaNoDisponible("Falta configurar la clave de la API de consultas en el servidor.")
     if recurso == "detalle" and filtros["fecha"] != fecha_hoy():
-        raise ValueError("La consulta de carnes frías solo permite existencia y costo al corte de hoy (Colombia).")
+        raise ValueError("La API de consultas solo permite existencia y costo al corte de hoy (Colombia).")
     base, timeout = conexion_rest()
     parametros = dict(filtros)
     if recurso == "lotes":
@@ -166,14 +172,20 @@ def consultar_rest(recurso, filtros, filtros_originales=None):
         if respuesta.status_code in {400, 404, 422}:
             datos_error = respuesta.json()
             detalle = datos_error.get("detail") if isinstance(datos_error, dict) else None
+            if isinstance(detalle, str) and "solo disponible para la empresa 8" in detalle.lower():
+                raise ConsultaNoDisponible(
+                    f"La API de consultas todavía restringe el acceso a la compañía 8 y rechazó la compañía {filtros['empresa']}. "
+                    "Es necesario habilitar esta compañía en el servidor de la API; las variables de entorno no eliminan esa restricción.")
             raise ValueError(detalle if isinstance(detalle, str) else "Revisa los parámetros de la consulta de Siesa.")
         if respuesta.status_code != 200:
             raise ConsultaNoDisponible("La API de consultas no está disponible. Intenta actualizar nuevamente.")
         datos = respuesta.json()
     except (requests.RequestException, requests.exceptions.JSONDecodeError) as exc:
         raise ConsultaNoDisponible("No se pudo consultar la API de Siesa. Intenta actualizar nuevamente.") from exc
-    if not isinstance(datos, dict) or ("empresa" in datos and str(datos["empresa"]) != "8"):
+    if not isinstance(datos, dict):
         raise ConsultaNoDisponible("La API devolvió una respuesta de consulta no válida.")
+    if "empresa" in datos and str(datos["empresa"]) != filtros["empresa"]:
+        raise ConsultaNoDisponible("La API devolvió datos de otra compañía. Se bloqueó la respuesta para evitar mezclar inventarios.")
     if recurso == "detalle":
         if datos.get("codigo") != filtros["item"] or datos.get("fecha_corte") != filtros["fecha"]:
             raise ConsultaNoDisponible("El ítem o la fecha de corte no coinciden con la consulta.")
@@ -221,8 +233,8 @@ def preparar_captura(payload):
     if not isinstance(payload, dict):
         raise ValueError("El taller debe ser un objeto JSON.")
     filtros = contexto(payload)
-    if filtros["empresa"] == "8" and filtros["fecha"] != fecha_hoy():
-        raise ValueError("Para carnes frías la fecha del taller debe ser hoy (Colombia).")
+    if proveedor_consultas() == "rest" and filtros["fecha"] != fecha_hoy():
+        raise ValueError("La API de consultas exige que la fecha del taller sea hoy (Colombia).")
     talleres = payload.get("talleres")
     if not isinstance(talleres, list) or not 1 <= len(talleres) <= 30:
         raise ValueError("Incluye entre 1 y 30 transformaciones.")
@@ -258,7 +270,7 @@ def preparar_captura(payload):
                                      "item": registro.get("item", ""), "lote": registro.get("lote", "")})
                 if consulta["bodega"] not in bodegas or not consulta["item"]:
                     raise ValueError("Selecciona un ítem y una bodega válidos.")
-                if filtros["empresa"] == "8":
+                if proveedor_consultas() == "rest":
                     clave_lotes = (consulta["bodega"], consulta["item"], tipo)
                     if clave_lotes not in lotes_por_item:
                         lotes_por_item[clave_lotes] = consultar("lotes", {

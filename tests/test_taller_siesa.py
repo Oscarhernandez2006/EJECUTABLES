@@ -12,6 +12,8 @@ from procesadores import taller_siesa
 
 
 def consulta(recurso, filtros):
+    if recurso == "lotes":
+        return {"maneja_lote": False, "data": []}
     if recurso == "detalle":
         return {"codigo": filtros["item"], "referencia": "000123", "descripcion": "Pechuga",
                 "um": "kg", "existencia": 100, "costo_promedio": 11200, "precio_venta": 20000}
@@ -47,6 +49,58 @@ def consulta_fria(recurso, filtros):
 
 
 class TallerSiesaTests(unittest.TestCase):
+    def setUp(self):
+        reloj = patch.object(taller_siesa, "fecha_hoy", return_value="20261123")
+        reloj.start()
+        self.addCleanup(reloj.stop)
+
+    def test_rest_envia_la_compania_seleccionada_sin_reemplazarla_por_8(self):
+        with patch.dict(os.environ, {"SIESA_CONSULTAS_API_KEY": "prueba"}, clear=True):
+            for empresa in ("3", "4", "6", "7", "8"):
+                respuesta = Mock(status_code=200)
+                respuesta.json.return_value = {"empresa": int(empresa), "data": [{"codigo": empresa + "01", "descripcion": "Centro propio"}]}
+                with self.subTest(empresa=empresa), patch.object(taller_siesa.requests, "get", return_value=respuesta) as get:
+                    filas = taller_siesa.consultar("centros", {"empresa": empresa, "fecha": "20261123"})
+                    self.assertEqual(get.call_args.kwargs["params"]["empresa"], empresa)
+                    self.assertEqual(filas[0]["codigo"], empresa + "01")
+
+    def test_rest_rechaza_respuesta_de_otra_compania(self):
+        respuesta = Mock(status_code=200)
+        respuesta.json.return_value = {"empresa": 8, "data": [{"codigo": "801", "descripcion": "MALAMBO"}]}
+        with patch.dict(os.environ, {"SIESA_CONSULTAS_API_KEY": "prueba"}), \
+             patch.object(taller_siesa.requests, "get", return_value=respuesta):
+            with self.assertRaisesRegex(taller_siesa.ConsultaNoDisponible, "otra compañía"):
+                taller_siesa.consultar("centros", {"empresa": "4", "fecha": "20261123"})
+
+    def test_captura_conserva_compania_centros_y_bodegas_en_todas_las_empresas(self):
+        with patch.dict(os.environ, {"SIESA_CONSULTAS_API_KEY": "prueba"}, clear=True):
+            for empresa in ("3", "4", "6", "7", "8"):
+                payload = captura()
+                centro = empresa + "01"
+                bodega = centro + "01"
+                payload.update(empresa=empresa, co=centro)
+                for grupo in ("insumos", "productos"):
+                    payload["talleres"][0][grupo][0]["bodega"] = bodega
+                def simular(recurso, filtros):
+                    self.assertEqual(filtros["empresa"], empresa)
+                    if recurso == "centros":
+                        return [{"codigo": centro, "descripcion": "Centro propio"}]
+                    if recurso == "bodegas":
+                        return [{"codigo": bodega, "descripcion": "Bodega propia"}]
+                    return consulta(recurso, filtros)
+                with self.subTest(empresa=empresa), patch.object(taller_siesa, "consultar", side_effect=simular):
+                    hojas, _, _ = taller_siesa.preparar_captura(payload)
+                    self.assertTrue(all(fila["CIA"] == empresa and fila["CO"] == centro
+                                        and fila["BODEGA"] == bodega for fila in hojas["Hoja1"]))
+
+    def test_rest_explica_restriccion_de_compania_en_la_api(self):
+        respuesta = Mock(status_code=400)
+        respuesta.json.return_value = {"detail": "Solo disponible para la empresa 8 (Inversiones Serrano Millan)."}
+        with patch.dict(os.environ, {"SIESA_CONSULTAS_API_KEY": "prueba"}), \
+             patch.object(taller_siesa.requests, "get", return_value=respuesta):
+            with self.assertRaisesRegex(taller_siesa.ConsultaNoDisponible, "rechazó la compañía 4"):
+                taller_siesa.consultar("centros", {"empresa": "4", "fecha": "20261123"})
+
     def test_rest_usa_base_url_y_timeout_ms_sin_duplicar_prefijo(self):
         respuesta = Mock(status_code=200)
         respuesta.json.return_value = {"empresa": 8, "data": [{"codigo": "801", "descripcion": "MALAMBO"}]}
@@ -76,7 +130,10 @@ class TallerSiesaTests(unittest.TestCase):
             self.assertTrue(respuesta.get_json()["solo_hoy"])
             self.assertEqual(respuesta.get_json()["proveedor"], "rest")
             self.assertNotIn("secreto-de-prueba", respuesta.get_data(as_text=True))
-            self.assertFalse(cliente.get("/api/taller/configuracion?empresa=4").get_json()["disponible"])
+            for empresa in ("3", "4", "6", "7"):
+                otra = cliente.get(f"/api/taller/configuracion?empresa={empresa}").get_json()
+                self.assertTrue(otra["disponible"])
+                self.assertEqual(otra["proveedor"], "rest")
 
     @patch.object(taller_siesa, "fecha_hoy", return_value="20261123")
     @patch.object(taller_siesa, "consultar", side_effect=consulta_fria)
@@ -260,7 +317,7 @@ class TallerSiesaTests(unittest.TestCase):
         plantilla = "<Consulta><Texto>{q}</Texto></Consulta>"
         respuesta = Mock(content=b'<Envelope><Table><codigo>4049</codigo><descripcion>Pollo</descripcion>'
                                  b'<referencia>4049</referencia><um>kg</um></Table></Envelope>')
-        with patch.dict(os.environ, {"SIESA_TALLER_XML_PRODUCTOS": plantilla}), \
+        with patch.dict(os.environ, {"SIESA_TALLER_XML_PRODUCTOS": plantilla}, clear=True), \
              patch.object(taller_siesa.requests, "post", return_value=respuesta) as post:
             filas = taller_siesa.consultar("productos", {"empresa": "4", "fecha": "20261123", "q": "A&B<>"})
             self.assertEqual(filas[0]["codigo"], "4049")

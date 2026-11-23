@@ -395,7 +395,7 @@
         panel.hidden = false;
         if (empresa === id && controles.Centro) return;
         empresa = id; generacion++; pendientes = []; configurado = false; error();
-        soloHoy = id === "8";
+        soloHoy = false;
         limpiarFilas();
         for (const control of Object.values(controles)) control.destroy();
         el("Empresa").textContent = nombre;

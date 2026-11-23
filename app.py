@@ -547,9 +547,10 @@ def taller_configuracion():
     if empresa is not None and not empresa_valida(empresa):
         return jsonify(ok=False, mensaje="Selecciona una empresa válida."), 400
     faltantes = taller_siesa.configuracion(empresa)
+    proveedor = taller_siesa.proveedor_consultas()
     respuesta = jsonify(ok=True, disponible=not faltantes, faltantes=faltantes,
-                        proveedor="rest" if empresa == "8" else "soap",
-                        solo_hoy=empresa == "8", fecha_hoy=taller_siesa.fecha_hoy())
+                        proveedor=proveedor,
+                        solo_hoy=proveedor == "rest", fecha_hoy=taller_siesa.fecha_hoy())
     respuesta.headers["Cache-Control"] = "no-store"
     return respuesta
 
