@@ -550,6 +550,8 @@ document.querySelectorAll(".modo__tab").forEach((tab) => {
 
 // ---------- Navegación entre procesos ----------
 function seleccionarProceso(item) {
+    if (window.Taller?.estaOcupado()) return;
+    window.Taller?.ocultar();
     navItems.forEach((n) => n.classList.remove("is-active"));
     item.classList.add("is-active");
 
@@ -602,6 +604,7 @@ navItems.forEach((item) => {
 
 // ---------- Selección de empresa (paso 1 -> paso 2) ----------
 function seleccionarEmpresa(id) {
+    if (window.Taller?.estaOcupado()) return;
     state.empresa = id;
     empresaOptions.querySelectorAll(".empresa-card").forEach((c) =>
         c.classList.toggle("is-active", c.dataset.empresa === id)
@@ -609,6 +612,11 @@ function seleccionarEmpresa(id) {
     const emp = empresaPorId(id);
     empresaActualNombre.textContent = emp ? emp.corto : id;
     stepDatos.hidden = false;
+    if (state.proceso.id === "taller") {
+        stepEmpresa.hidden = true;
+        stepDatos.hidden = true;
+        window.Taller?.abrir(id, emp ? emp.corto : id);
+    }
     actualizarBotonEjecutar();
     stepDatos.scrollIntoView({ behavior: "smooth", block: "start" });
 }

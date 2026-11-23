@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.default.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/taller.css') }}" />
 </head>
 <body>
     <div class="app">
@@ -203,6 +205,8 @@
                     </div>
                 </div>
 
+                {% include 'taller.html' %}
+
                 <!-- Panel de resultados -->
                 <div class="card result" id="resultCard" hidden>
                     <div class="result__header">
@@ -274,6 +278,9 @@
         window.PROCESOS = {{ procesos_json|safe }};
         window.EMPRESAS = {{ empresas_json|safe }};
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="{{ url_for('static', filename='js/taller.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

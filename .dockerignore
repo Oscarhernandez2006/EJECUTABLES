@@ -5,6 +5,8 @@ __pycache__/
 *.py[cod]
 .git/
 .gitignore
+.env
+.env.*
 .vscode/
 README.md
 uploads/

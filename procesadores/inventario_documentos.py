@@ -105,7 +105,7 @@ class DocumentosInventario:
             self.datos["PRECIO DE  VENTA"] = self.datos["PRECIO DE  VENTA"].astype(object)
             self.datos.loc[entradas, "PRECIO DE  VENTA"] = self.datos.loc[
                 entradas, "PRECIO DE  VENTA"
-            ].map(lambda v: numero(v, "PRECIO DE VENTA", positivo=True))
+            ].map(lambda v: numero(v, "PRECIO DE VENTA"))
 
     def calcular_taller(self):
         salida = self.datos[self.datos["TIPO_DOC"] == "SAI"].copy()
@@ -121,6 +121,8 @@ class DocumentosInventario:
         entrada["VENTA"] = entrada["PRECIO DE  VENTA"] * entrada["CANT"]
         costos = salida.groupby(CLAVE_TALLER)["COSTO_TOTAL"].sum()
         ventas = entrada.groupby(CLAVE_TALLER)["VENTA"].transform("sum")
+        if (ventas <= 0).any():
+            raise ValueError("El total de PRECIO DE VENTA por cantidad debe ser positivo en cada transformación.")
         costo_entrada = pd.Series(
             [costos.loc[tuple(f)] for f in entrada[CLAVE_TALLER].to_numpy()],
             index=entrada.index, dtype=object,

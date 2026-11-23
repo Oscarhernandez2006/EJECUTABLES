@@ -17,11 +17,14 @@ import tempfile
 import threading
 import traceback
 
+from dotenv import load_dotenv
 from flask import (Flask, Response, abort, jsonify, render_template, request,
-                   send_from_directory, stream_with_context)
+                   send_file, send_from_directory, stream_with_context)
 from werkzeug.utils import secure_filename
 
-from procesadores import PROCESADORES, siesa
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"), override=False)
+
+from procesadores import PROCESADORES, siesa, taller_siesa
 from config import (
     EMPRESAS,
     empresa_valida,
@@ -536,6 +539,56 @@ def procesar(tipo):
     entrada_proc = rutas[entradas[0]["clave"]] if len(entradas) == 1 else rutas
     return _ejecutar_proceso(modulo, tipo, entrada_proc, empresa_id, fecha, parametros, datos,
                              limpiar=lambda: shutil.rmtree(up_dir, ignore_errors=True))
+
+
+@app.get("/api/taller/configuracion")
+def taller_configuracion():
+    empresa = request.args.get("empresa")
+    if empresa is not None and not empresa_valida(empresa):
+        return jsonify(ok=False, mensaje="Selecciona una empresa válida."), 400
+    faltantes = taller_siesa.configuracion(empresa)
+    respuesta = jsonify(ok=True, disponible=not faltantes, faltantes=faltantes,
+                        proveedor="rest" if empresa == "8" else "soap",
+                        solo_hoy=empresa == "8", fecha_hoy=taller_siesa.fecha_hoy())
+    respuesta.headers["Cache-Control"] = "no-store"
+    return respuesta
+
+
+@app.get("/api/taller/catalogo/<recurso>")
+def taller_catalogo(recurso):
+    try:
+        resultado = taller_siesa.consultar(recurso, request.args)
+        respuesta = jsonify(ok=True, datos=resultado)
+        respuesta.headers["Cache-Control"] = "no-store"
+        return respuesta
+    except ValueError as exc:
+        return jsonify(ok=False, mensaje=str(exc)), 400
+    except taller_siesa.ConsultaNoDisponible as exc:
+        return jsonify(ok=False, mensaje=str(exc)), 503
+
+
+@app.post("/api/taller/<accion>")
+def taller_captura(accion):
+    if accion not in {"validar", "ejecutar", "exportar"}:
+        abort(404)
+    payload = request.get_json(silent=True)
+    try:
+        hojas, parametros, resumen = taller_siesa.preparar_captura(payload)
+    except (ValueError, KeyError, TypeError) as exc:
+        return jsonify(ok=False, mensaje=str(exc)), 400
+    except taller_siesa.ConsultaNoDisponible as exc:
+        return jsonify(ok=False, mensaje=str(exc)), 503
+    revision = taller_siesa.revision(hojas, parametros, payload["fecha"])
+    if accion == "validar":
+        return jsonify(ok=True, resumen=resumen, revision=revision)
+    if accion == "exportar":
+        return send_file(taller_siesa.exportar(hojas, parametros, resumen, payload),
+                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                         as_attachment=True, download_name=f"Taller-{payload['fecha']}.xlsx")
+    if payload.get("revision") != revision:
+        return jsonify(ok=False, mensaje="Los datos cambiaron o falta la confirmación. Valida nuevamente antes de importar."), 409
+    return _ejecutar_proceso(PROCESADORES["taller"], "taller", None, str(payload["empresa"]),
+                             payload["fecha"], parametros, None, hojas)
 
 
 @app.errorhandler(413)

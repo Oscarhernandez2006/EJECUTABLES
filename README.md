@@ -58,6 +58,162 @@ Usan la conexión compartida de la web y sus credenciales de entorno
 `SIESA_SIINV_USER` / `SIESA_SIINV_PASSWORD`. No se reutilizan las credenciales
 personales ni la conexión de pruebas incrustadas en los scripts de escritorio.
 
+### Taller interactivo con consultas a Siesa
+
+Al seleccionar **Inventario > Taller** y una empresa se abre la captura
+interactiva. **Cargar Excel** conserva el flujo de importación anterior.
+Centro, lista de precios, bodegas, productos y lotes usan selectores buscables.
+La búsqueda de productos admite código, referencia o descripción desde un carácter y
+espera 300 ms entre consultas; se cancelan búsquedas anteriores. No se usa un
+catálogo Excel como reemplazo de una consulta real.
+
+Las cantidades y el precio de venta son editables. El costo promedio de los
+insumos, la existencia a la fecha y la UM provienen exclusivamente del servidor.
+Al validar, exportar e importar se consultan nuevamente en Siesa; se comprueba
+el consumo acumulado por empresa, bodega, ítem y lote. La confirmación identifica
+los datos consultados: si cambian antes de importar se exige validar otra vez.
+Esta comprobación no reserva inventario; Siesa debe validar la disponibilidad
+al contabilizar. No se reintentan importaciones automáticamente.
+
+Se muestran costo, venta proyectada, utilidad, margen, costo de venta,
+participación, merma y rendimiento. El reparto conserva las fórmulas de la hoja
+TALLER del archivo de transformación: `costo / venta total`, costo unitario de
+entrada `precio de venta * costo / venta total`, y margen
+`(venta total - costo) / venta total`. Se permite un subproducto con precio cero
+si la venta total de su transformación es positiva. Para comparar pesos y
+calcular merma todos los movimientos deben usar la misma UM; no se inventan
+conversiones. Una merma negativa se muestra como diferencia, sin ocultarla.
+
+El consolidado permite editar o quitar transformaciones antes de enviar y
+descargar un libro nuevo con **Hoja1**, **TALLER**, **CONSOLIDADO** y **BD**.
+Hoja1 es reimportable por el flujo Excel; BD registra existencias, costos y
+precios consultados, diferenciando el precio de venta editado. El original
+`.xlsm` no se modifica y no se ejecutan ni se copian sus macros. El consolidado
+es temporal en la pestaña; no hay historial persistente en base de datos.
+
+#### Compañía 8: API REST de carnes frías
+
+La empresa **Inversiones Serrano Millán (8)** usa consultas GET contra
+`https://apiconsulta.grupo-santacruz.com/carnes-frias`, sin requerir plantillas
+SOAP de lectura. El navegador solo consulta al backend de EJECUTABLES; el token
+se agrega a `X-API-Key` en el servidor y nunca se envía al navegador ni por URL.
+
+Configurar en **el contenedor de EJECUTABLES**, además del servidor de la API:
+
+- `SIESA_CONSULTAS_API_KEY`: el mismo token autorizado por la API. Como
+  alternativa se admite `API_KEY`; la variable específica tiene prioridad.
+- `SIESA_CONSULTAS_BASE_URL`: opcional, por defecto
+  `https://apiconsulta.grupo-santacruz.com`. El conector agrega `/carnes-frias`
+  si no aparece al final. Tiene prioridad sobre el nombre anterior
+  `SIESA_CONSULTAS_URL`, que sigue siendo compatible.
+- `SIESA_CONSULTAS_TIMEOUT_MS`: espera de lectura en milisegundos; por defecto
+  `30000` (30 segundos), con conexión limitada a 5 segundos. Acepta de 1 a
+  300000. La URL debe usar HTTPS; no se siguen redirecciones con la clave.
+
+En desarrollo la aplicación carga automáticamente el `.env` junto a `app.py`
+antes de importar los conectores, sin sobrescribir variables ya presentes en
+el entorno. Reiniciar el servidor después de cambiarlo. El archivo está
+excluido de Git y del contexto de construcción de Docker; en contenedores se
+inyectan las variables mediante Compose o el panel de despliegue.
+
+Docker Compose pasa estas variables desde el entorno de despliegue. Una clave
+configurada únicamente en el servicio de la API no está automáticamente
+disponible en EJECUTABLES. No incluir el token en archivos versionados.
+
+| Catálogo interno | Endpoint GET de la API |
+| --- | --- |
+| `centros` | `/centros-operacion` |
+| `bodegas` | `/bodegas` |
+| `listas` | `/listas-precios` |
+| `productos` | `/productos` |
+| `lotes` | `/lotes` |
+| `detalle` | `/detalle-item` |
+
+Los catálogos se leen de `data`; el detalle se recibe como objeto directo.
+La existencia y el costo solo son exactos **hoy**, según la fecha de Colombia
+(UTC-5). En la captura interactiva de la compañía 8 se fija esa fecha y el
+servidor rechaza otra fecha. La importación histórica por Excel no cambia.
+
+`tiene_costo=false` bloquea el uso de un insumo: no se confunde el cero de
+reemplazo con un costo real. Un producto terminado puede no tener costo previo
+porque su costo se calcula desde los insumos. `tiene_precio=false` deja vacío
+el precio del terminado y exige que el usuario lo ingrese explícitamente; el
+servidor comprueba `precio_editado=true`. Un cero real con indicador `true`
+sigue siendo válido, siempre que la venta total del taller sea positiva.
+
+Se muestran `avisos` e `incluye_impuestos`. El precio se usa tal como lo devuelve
+Siesa, sin inventar una tasa ni descontar impuestos; la utilidad es proyectada
+sobre esa misma base. La UM del precio debe coincidir con la de inventario.
+
+Los lotes de insumos se consultan con `solo_con_existencia=true`; los de destino,
+con `false`, para incluir lotes activos sin saldo en la bodega. Se conserva
+`maneja_lote`: si es verdadero se exige un lote activo incluso cuando la lista
+está vacía. Si es falso no se acepta lote. La creación de lotes mediante el
+conector 0403 **no está implementada**: crear antes el lote en Siesa; todos los
+endpoints REST usados aquí siguen siendo de solo lectura. El envío SAI/EIN
+conserva el conector de importación existente.
+
+#### Otras compañías: configuración SOAP de lectura
+
+El WSDL del servicio existente publica `EjecutarConsultaXML` con un parámetro
+de texto `pvstrxmlParametros`. **El repositorio no incluye las definiciones XML
+de consultas autorizadas para este tenant de Siesa.** No basta con conocer el
+endpoint SOAP o las credenciales de importación. Hasta obtener y configurar
+esas definiciones, la pantalla muestra **Conexión de lectura pendiente** y no
+habilita el envío interactivo. La conexión real de lectura sigue pendiente de
+verificación con el administrador de Siesa para esas compañías. Esta limitación
+no aplica a la compañía 8, que usa la API REST anterior.
+
+Configurar en el entorno del servidor el XML interno completo autorizado para
+cada una de estas variables. No es el sobre SOAP: la aplicación lo construye.
+No se deben adivinar nombres de consultas, tablas ni el esquema del XML.
+
+| Variable | Resultado esperado: alias de columnas |
+| --- | --- |
+| `SIESA_TALLER_XML_CENTROS` | `codigo`, `descripcion` |
+| `SIESA_TALLER_XML_BODEGAS` | `codigo`, `descripcion` |
+| `SIESA_TALLER_XML_LISTAS` | `codigo`, `descripcion` |
+| `SIESA_TALLER_XML_PRODUCTOS` | `codigo`, `descripcion`, `referencia`, `um` |
+| `SIESA_TALLER_XML_LOTES` | `codigo`, `descripcion` |
+| `SIESA_TALLER_XML_DETALLE` | `codigo`, `descripcion`, `referencia`, `um`, `existencia`, `costo_promedio`, `precio_venta` |
+
+Los alias pueden venir en mayúsculas o minúsculas. Cada fila debe ser un nodo
+de DataSet con esas columnas como hijos directos. El detalle debe devolver
+exactamente una fila del ítem solicitado; los números deben venir en formato
+decimal sin separadores de miles. Una respuesta vacía, ambigua, sin precio o
+sin costo no se reemplaza por cero. Un cero explícito sí es un dato válido.
+
+Dentro de cada plantilla XML se reemplazan únicamente **textos completos de
+elementos**, nunca SQL ni atributos, con estos marcadores:
+`{conexion}`, `{usuario}`, `{clave}`, `{empresa}`, `{fecha}`, `{co}`, `{lista}`,
+`{bodega}`, `{item}`, `{lote}` y `{q}`. Por ejemplo, un nodo de parámetro del
+contrato autorizado puede tener como texto `{fecha}`. Los valores se escapan
+mediante el serializador XML. Las credenciales permanecen en el servidor;
+se usan `SIESA_USER`, `SIESA_PASSWORD` y la conexión compartida existente.
+
+Requisitos de las consultas autorizadas:
+
+- Filtrar siempre por compañía; bodegas además por centro seleccionado.
+- Buscar productos por número de ítem o descripción usando `{q}` como
+  **parámetro enlazado**, no concatenado en SQL. Filtrar antes de limitar
+  resultados; la interfaz muestra hasta 40 coincidencias de producto.
+- Filtrar lotes por ítem y bodega. Si el ítem no maneja lote, devolver cero
+  filas; la selección vacía significa que no aplica lote, no todos los lotes.
+- Resolver existencia y costo promedio para la fecha, bodega, ítem y lote
+  solicitados, en la UM de inventario devuelta. No devolver una fila por
+  ubicación, extensión u otra dimensión: agregar en Siesa según corresponda.
+- Resolver precio por compañía, lista, ítem, UM y vigencia a la fecha.
+- Devolver error o cero filas si falta el precio o costo; no usar `COALESCE`
+  para convertir ausencia de información en un cero válido.
+- Respetar los permisos del usuario técnico y no exponer credenciales en las
+  columnas del resultado. Las definiciones de lectura deben ser de solo lectura.
+
+La importación conserva los tipos SAI/EIN y requiere un número de taller válido;
+verificar que no exista ya en Siesa. Antes de reintentar un envío con error o
+respuesta incompleta, comprobar si Siesa recibió algún documento. La app sigue
+sin autenticación propia: limitar el acceso en el proxy o portal antes de
+habilitar las consultas y la importación en producción.
+
 ### Plantillas y limpieza
 
 Las plantillas descargables están en [plantillas](./plantillas/). Los archivos

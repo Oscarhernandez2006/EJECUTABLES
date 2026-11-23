@@ -13,6 +13,7 @@ EMPRESAS = [
     {"id": "4", "nombre": "CARNES SANTACRUZ", "corto": "Carnes Santacruz", "logo": "empresa-4.png"},
     {"id": "6", "nombre": "CRISTIAN SERRANO", "corto": "Cristian Serrano", "logo": "empresa-4.png"},
     {"id": "7", "nombre": "INVERSIONES SERUEDA S.A.S", "corto": "Inversiones Serueda", "logo": "empresa-4.png"},
+    {"id": "8", "nombre": "INVERSIONES SERRANO MILLAN", "corto": "Serrano Millan (carnes frias)", "logo": "empresa-4.png"},
 ]
 
 EMPRESA_IDS = [e["id"] for e in EMPRESAS]

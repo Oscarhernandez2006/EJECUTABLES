@@ -1,0 +1,73 @@
+<section id="tallerPanel" class="taller" hidden aria-label="Taller de transformación">
+    <header class="taller__heading">
+        <div><button type="button" class="btn btn--ghost" id="tallerCambiarEmpresa"><i data-lucide="building-2"></i><span id="tallerEmpresa"></span></button><h2>Taller de transformación</h2></div>
+        <button type="button" class="btn btn--ghost" id="tallerExcel"><i data-lucide="file-spreadsheet"></i> Cargar Excel</button>
+    </header>
+    <p id="tallerAviso" class="taller__notice" role="status" hidden></p>
+    <div class="taller__context">
+        <label>Fecha<input id="tallerFecha" type="date" required></label>
+        <label>Centro de operación<select id="tallerCentro" aria-label="Centro de operación"></select></label>
+        <label>Lista de precios<select id="tallerLista" aria-label="Lista de precios"></select></label>
+        <label>Bodega de insumos<select id="tallerOrigen" aria-label="Bodega de insumos"></select></label>
+        <label>Bodega de terminados<select id="tallerDestino" aria-label="Bodega de terminados"></select></label>
+        <label>Número de taller<input id="tallerNumero" type="number" min="1" max="99999999" step="1" value="1"></label>
+    </div>
+    <div class="taller__toolbar">
+        <span class="taller__sync" id="tallerSync" aria-live="polite">Sin consultar</span>
+        <button type="button" class="btn btn--ghost" id="tallerActualizar"><i data-lucide="refresh-cw"></i> Actualizar Siesa</button>
+    </div>
+    <section class="taller__section">
+        <div class="taller__section-head"><div><span class="taller__tag">SAI</span><h3>Insumos</h3></div>
+            <button type="button" class="btn btn--ghost" id="tallerAgregarInsumo"><i data-lucide="plus"></i> Insumo</button></div>
+        <div class="taller__scroll"><table class="taller__table"><thead><tr>
+            <th scope="col">Ítem / producto</th><th scope="col">Lote</th><th scope="col">Existencia a la fecha</th>
+            <th scope="col">Cantidad</th><th scope="col">UM</th><th scope="col">Costo promedio unitario (INS)</th>
+            <th scope="col">Costo total</th><th scope="col"><span class="taller__sr">Acciones</span></th>
+        </tr></thead><tbody id="tallerInsumos"></tbody></table></div>
+    </section>
+    <section class="taller__section">
+        <div class="taller__section-head"><div><span class="taller__tag taller__tag--entry">EIN</span><h3>Productos terminados</h3></div>
+            <button type="button" class="btn btn--ghost" id="tallerAgregarProducto"><i data-lucide="plus"></i> Producto</button></div>
+        <div class="taller__scroll"><table class="taller__table"><thead><tr>
+            <th scope="col">Ítem / producto</th><th scope="col">Lote</th><th scope="col">Existencia a la fecha</th>
+            <th scope="col">Cantidad</th><th scope="col">UM</th><th scope="col">Precio de venta</th>
+            <th scope="col">Participación</th><th scope="col">Costo distribuido / UM</th><th scope="col">Venta total</th>
+            <th scope="col"><span class="taller__sr">Acciones</span></th>
+        </tr></thead><tbody id="tallerProductos"></tbody></table></div>
+    </section>
+    <div class="taller__balance" aria-live="polite">
+        <span>Insumos <strong id="tallerPesoInsumos">0</strong></span>
+        <span>Terminados <strong id="tallerPesoProductos">0</strong></span>
+        <span>Merma / diferencia <strong id="tallerMerma">0</strong></span>
+        <span>Rendimiento <strong id="tallerRendimiento">0 %</strong></span>
+    </div>
+    <div class="taller__metrics" aria-live="polite">
+        <div><span>Costo de insumos</span><strong id="tallerCosto">$ 0</strong></div>
+        <div><span>Venta proyectada</span><strong id="tallerVenta">$ 0</strong></div>
+        <div><span>Utilidad proyectada</span><strong id="tallerUtilidad">$ 0</strong></div>
+        <div><span>Margen de utilidad</span><strong id="tallerMargen">0 %</strong></div>
+        <div><span>Costo de venta</span><strong id="tallerCostoVenta">0 %</strong></div>
+    </div>
+    <p id="tallerError" class="taller__error" role="alert" hidden></p>
+    <div class="taller__actions">
+        <button type="button" class="btn btn--primary" id="tallerConsolidar"><i data-lucide="check"></i> Consolidar taller</button>
+    </div>
+    <section class="taller__section" id="tallerConsolidado" hidden>
+        <div class="taller__section-head"><h3>Consolidado pendiente de envío</h3><span id="tallerCuenta"></span></div>
+        <div class="taller__scroll"><table class="taller__table taller__table--summary"><thead><tr>
+            <th scope="col">Taller</th><th scope="col">Insumos</th><th scope="col">Productos</th><th scope="col">Costo</th>
+            <th scope="col">Venta</th><th scope="col">Utilidad</th><th scope="col">Margen</th><th scope="col">Acciones</th>
+        </tr></thead><tbody id="tallerConsolidadoBody"></tbody></table></div>
+        <div class="taller__grand" id="tallerAcumulado" aria-live="polite"></div>
+        <div class="taller__actions">
+            <button type="button" class="btn btn--ghost" id="tallerExportar"><i data-lucide="download"></i> Descargar Excel</button>
+            <button type="button" class="btn btn--primary" id="tallerEnviar"><i data-lucide="send"></i> Validar e importar</button>
+        </div>
+    </section>
+    <dialog id="tallerConfirmacion" class="taller__dialog">
+        <h3>Confirmar importación a Siesa</h3>
+        <p id="tallerConfirmacionTexto"></p>
+        <div class="taller__actions"><button type="button" class="btn btn--ghost" id="tallerCancelar">Cancelar</button>
+            <button type="button" class="btn btn--primary" id="tallerConfirmar"><i data-lucide="send"></i> Importar a Siesa</button></div>
+    </dialog>
+</section>
