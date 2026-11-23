@@ -1,57 +1,63 @@
 <section id="tallerPanel" class="taller" hidden aria-label="Taller de transformación">
     <header class="taller__heading">
-        <div><button type="button" class="btn btn--ghost" id="tallerCambiarEmpresa"><i data-lucide="building-2"></i><span id="tallerEmpresa"></span></button><h2>Taller de transformación</h2></div>
-        <button type="button" class="btn btn--ghost" id="tallerExcel"><i data-lucide="file-spreadsheet"></i> Cargar Excel</button>
+        <div class="taller__title"><span class="taller__mark"><i data-lucide="workflow"></i></span><div><h2>Nueva transformación</h2><span class="taller__eyebrow">Salida de insumos / entrada de terminados</span></div></div>
+        <div class="taller__heading-actions">
+            <button type="button" class="btn btn--ghost taller__company" id="tallerCambiarEmpresa" title="Cambiar empresa"><i data-lucide="building-2"></i><span id="tallerEmpresa"></span><i data-lucide="chevron-down"></i></button>
+            <button type="button" class="btn btn--ghost" id="tallerExcel"><i data-lucide="file-spreadsheet"></i> Cargar Excel</button>
+        </div>
     </header>
     <p id="tallerAviso" class="taller__notice" role="status" hidden></p>
     <div class="taller__context">
-        <label>Fecha<input id="tallerFecha" type="date" required></label>
-        <label>Centro de operación<select id="tallerCentro" aria-label="Centro de operación"></select></label>
-        <label>Lista de precios<select id="tallerLista" aria-label="Lista de precios"></select></label>
-        <label>Bodega de insumos<select id="tallerOrigen" aria-label="Bodega de insumos"></select></label>
-        <label>Bodega de terminados<select id="tallerDestino" aria-label="Bodega de terminados"></select></label>
-        <label>Número de taller<input id="tallerNumero" type="number" min="1" max="99999999" step="1" value="1"></label>
+        <label class="taller__field--small">N.º de taller<input id="tallerNumero" aria-label="Número de taller" type="number" min="1" max="99999999" step="1" value="1"></label>
+        <label class="taller__field--small">Fecha<input id="tallerFecha" type="date" required></label>
+        <label class="taller__field--wide">Centro de operación<select id="tallerCentro" aria-label="Centro de operación"></select></label>
+        <label class="taller__field--wide">Lista de precios<select id="tallerLista" aria-label="Lista de precios"></select></label>
+        <label class="taller__field--warehouse"><span><i data-lucide="arrow-up-right"></i> Bodega de insumos</span><select id="tallerOrigen" aria-label="Bodega de insumos"></select></label>
+        <label class="taller__field--warehouse"><span><i data-lucide="arrow-down-left"></i> Bodega de terminados</span><select id="tallerDestino" aria-label="Bodega de terminados"></select></label>
     </div>
     <div class="taller__toolbar">
-        <span class="taller__sync" id="tallerSync" aria-live="polite">Sin consultar</span>
-        <button type="button" class="btn btn--ghost" id="tallerActualizar"><i data-lucide="refresh-cw"></i> Actualizar Siesa</button>
+        <span class="taller__sync"><span class="taller__sync-dot"></span><span id="tallerSync" aria-live="polite">Sin consultar</span></span>
+        <button type="button" class="btn btn--ghost taller__refresh" id="tallerActualizar"><i data-lucide="refresh-cw"></i> Actualizar</button>
     </div>
-    <section class="taller__section">
-        <div class="taller__section-head"><div><span class="taller__tag">SAI</span><h3>Insumos</h3></div>
-            <button type="button" class="btn btn--ghost" id="tallerAgregarInsumo"><i data-lucide="plus"></i> Insumo</button></div>
-        <div class="taller__scroll"><table class="taller__table"><thead><tr>
-            <th scope="col">Ítem / producto</th><th scope="col">Lote</th><th scope="col">Existencia a la fecha</th>
-            <th scope="col">Cantidad</th><th scope="col">UM</th><th scope="col">Costo promedio unitario (INS)</th>
-            <th scope="col">Costo total</th><th scope="col"><span class="taller__sr">Acciones</span></th>
+    <section class="taller__section taller__section--insumos" aria-labelledby="tallerTituloInsumos">
+        <div class="taller__section-head"><div><span class="taller__tag">SAI</span><h3 id="tallerTituloInsumos">Insumos</h3><span class="taller__count" id="tallerInsumosCuenta">0 ítems</span></div>
+            <button type="button" class="btn btn--ghost" id="tallerAgregarInsumo"><i data-lucide="plus"></i> Añadir insumo</button></div>
+        <div class="taller__scroll" tabindex="0" role="region" aria-label="Movimientos de insumos"><table class="taller__table taller__table--insumos"><colgroup><col class="taller__col-producto"><col class="taller__col-lote"><col class="taller__col-stock"><col class="taller__col-cantidad"><col class="taller__col-um"><col class="taller__col-costo"><col class="taller__col-total"><col class="taller__col-acciones"></colgroup><thead><tr>
+            <th scope="col">Ítem / producto</th><th scope="col">Lote</th><th scope="col" class="taller__numeric" title="Existencia a la fecha seleccionada">Existencia</th>
+            <th scope="col" class="taller__numeric">Cantidad</th><th scope="col">UM</th><th scope="col" class="taller__numeric" title="Costo promedio unitario (INS), consultado en Siesa"><span class="taller__locked"><i data-lucide="lock-keyhole"></i> Costo promedio</span></th>
+            <th scope="col" class="taller__numeric">Costo total</th><th scope="col"><span class="taller__sr">Acciones</span></th>
         </tr></thead><tbody id="tallerInsumos"></tbody></table></div>
     </section>
-    <section class="taller__section">
-        <div class="taller__section-head"><div><span class="taller__tag taller__tag--entry">EIN</span><h3>Productos terminados</h3></div>
-            <button type="button" class="btn btn--ghost" id="tallerAgregarProducto"><i data-lucide="plus"></i> Producto</button></div>
-        <div class="taller__scroll"><table class="taller__table"><thead><tr>
-            <th scope="col">Ítem / producto</th><th scope="col">Lote</th><th scope="col">Existencia a la fecha</th>
-            <th scope="col">Cantidad</th><th scope="col">UM</th><th scope="col">Precio de venta</th>
-            <th scope="col">Participación</th><th scope="col">Costo distribuido / UM</th><th scope="col">Venta total</th>
+    <section class="taller__section taller__section--productos" aria-labelledby="tallerTituloProductos">
+        <div class="taller__section-head"><div><span class="taller__tag taller__tag--entry">EIN</span><h3 id="tallerTituloProductos">Productos terminados</h3><span class="taller__count" id="tallerProductosCuenta">0 ítems</span></div>
+            <button type="button" class="btn btn--ghost" id="tallerAgregarProducto"><i data-lucide="plus"></i> Añadir producto</button></div>
+        <div class="taller__scroll" tabindex="0" role="region" aria-label="Movimientos de productos terminados"><table class="taller__table taller__table--productos"><colgroup><col class="taller__col-producto"><col class="taller__col-lote"><col class="taller__col-stock"><col class="taller__col-cantidad"><col class="taller__col-um"><col class="taller__col-precio"><col class="taller__col-participacion"><col class="taller__col-costo"><col class="taller__col-total"><col class="taller__col-acciones"></colgroup><thead><tr>
+            <th scope="col">Ítem / producto</th><th scope="col">Lote</th><th scope="col" class="taller__numeric">Existencia</th>
+            <th scope="col" class="taller__numeric">Cantidad</th><th scope="col">UM</th><th scope="col" class="taller__numeric">P. venta</th>
+            <th scope="col" class="taller__numeric" title="Participación sobre la cantidad de insumos">Part. %</th><th scope="col" class="taller__numeric" title="Costo unitario distribuido">Costo / UM</th><th scope="col" class="taller__numeric">Venta total</th>
             <th scope="col"><span class="taller__sr">Acciones</span></th>
         </tr></thead><tbody id="tallerProductos"></tbody></table></div>
     </section>
-    <div class="taller__balance" aria-live="polite">
-        <span>Insumos <strong id="tallerPesoInsumos">0</strong></span>
-        <span>Terminados <strong id="tallerPesoProductos">0</strong></span>
-        <span>Merma / diferencia <strong id="tallerMerma">0</strong></span>
-        <span>Rendimiento <strong id="tallerRendimiento">0 %</strong></span>
-    </div>
+    <section class="taller__summary" aria-label="Balance de la transformación">
     <div class="taller__metrics" aria-live="polite">
         <div><span>Costo de insumos</span><strong id="tallerCosto">$ 0</strong></div>
         <div><span>Venta proyectada</span><strong id="tallerVenta">$ 0</strong></div>
-        <div><span>Utilidad proyectada</span><strong id="tallerUtilidad">$ 0</strong></div>
-        <div><span>Margen de utilidad</span><strong id="tallerMargen">0 %</strong></div>
+        <div class="taller__profit"><span>Utilidad proyectada</span><strong id="tallerUtilidad">$ 0</strong></div>
+        <div><span>Margen</span><strong id="tallerMargen">0 %</strong></div>
         <div><span>Costo de venta</span><strong id="tallerCostoVenta">0 %</strong></div>
     </div>
-    <p id="tallerError" class="taller__error" role="alert" hidden></p>
-    <div class="taller__actions">
-        <button type="button" class="btn btn--primary" id="tallerConsolidar"><i data-lucide="check"></i> Consolidar taller</button>
+    <div class="taller__balance" aria-live="polite">
+        <span>Cant. insumos <strong id="tallerPesoInsumos">0</strong></span>
+        <span>Cant. terminados <strong id="tallerPesoProductos">0</strong></span>
+        <span>Merma / diferencia <strong id="tallerMerma">0</strong></span>
+        <span>Rendimiento <strong id="tallerRendimiento">0 %</strong></span>
     </div>
+    <div class="taller__actions">
+        <span class="taller__draft-count" id="tallerPreparados">0 ítems seleccionados</span>
+        <button type="button" class="btn btn--primary" id="tallerConsolidar"><i data-lucide="list-plus"></i> Consolidar taller</button>
+    </div>
+    </section>
+    <p id="tallerError" class="taller__error" role="alert" hidden></p>
     <section class="taller__section" id="tallerConsolidado" hidden>
         <div class="taller__section-head"><h3>Consolidado pendiente de envío</h3><span id="tallerCuenta"></span></div>
         <div class="taller__scroll"><table class="taller__table taller__table--summary"><thead><tr>

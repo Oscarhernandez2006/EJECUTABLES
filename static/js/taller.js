@@ -15,6 +15,96 @@
     let configurado = false;
     let revision = "";
     let soloHoy = false;
+    const selectoresTeclado = new WeakMap();
+
+    function celdasEditables(fila) {
+        return [...fila.querySelectorAll("input[data-taller-col]")].filter(
+            (campo) => !campo.disabled && !campo.readOnly && campo.getClientRects().length > 0);
+    }
+    function enfocarCelda(campo) {
+        if (!campo) return;
+        campo.focus();
+        const selector = selectoresTeclado.get(campo);
+        if (!selector) {
+            try { campo.select(); } catch {}
+        }
+        campo.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    function moverCelda(campo, direccion, crearFila = false) {
+        const fila = campo.closest("tr");
+        if (!fila) {
+            const campos = [...panel.querySelectorAll(".taller__context input")].filter(
+                (input) => !input.disabled && input.getClientRects().length > 0);
+            const destino = campos[campos.indexOf(campo) + direccion]
+                || (direccion > 0 && el("Insumos").rows.length ? celdasEditables(el("Insumos").rows[0])[0] : null);
+            if (!destino) return false;
+            enfocarCelda(destino); return true;
+        }
+        const grupo = fila.closest("tbody").id === "tallerInsumos" ? "insumos" : "productos";
+        const campos = celdasEditables(fila);
+        const indice = campos.indexOf(campo);
+        const vecino = campos[indice + direccion];
+        if (vecino) { enfocarCelda(vecino); return true; }
+        const filasGrupo = [...fila.parentElement.rows];
+        const siguienteFila = filasGrupo[filasGrupo.indexOf(fila) + direccion];
+        if (siguienteFila) {
+            const siguientes = celdasEditables(siguienteFila);
+            enfocarCelda(direccion > 0 ? siguientes[0] : siguientes.at(-1)); return true;
+        }
+        if (crearFila && direccion > 0 && filas[grupo].length < 100) {
+            const registro = filas[grupo].find((registro) => registro.tr === fila);
+            if (registro?.producto.getValue() && Number(registro.cantidad) > 0) {
+                agregar(grupo);
+                enfocarCelda(celdasEditables(fila.parentElement.lastElementChild)[0]); return true;
+            }
+        }
+        const otraTabla = el(grupo === "insumos" ? "Productos" : "Insumos");
+        if (grupo === "insumos" && direccion > 0 && otraTabla.rows.length) {
+            enfocarCelda(celdasEditables(otraTabla.rows[0])[0]); return true;
+        }
+        if (grupo === "productos" && direccion < 0 && otraTabla.rows.length) {
+            enfocarCelda(celdasEditables(otraTabla.rows[otraTabla.rows.length - 1]).at(-1)); return true;
+        }
+        if (grupo === "insumos" && direccion < 0) {
+            const contexto = [...panel.querySelectorAll(".taller__context input")].filter(
+                (input) => !input.disabled && input.getClientRects().length > 0);
+            if (contexto.length) { enfocarCelda(contexto.at(-1)); return true; }
+        }
+        return false;
+    }
+    panel.addEventListener("keydown", (evento) => {
+        const campo = evento.target;
+        if (!(campo instanceof HTMLInputElement) || ocupado || evento.isComposing || evento.altKey || evento.ctrlKey || evento.metaKey) return;
+        const fila = campo.closest("#tallerInsumos tr, #tallerProductos tr");
+        if (!fila && !campo.closest(".taller__context")) return;
+        if (fila && !campo.hasAttribute("data-taller-col")) return;
+        const selector = selectoresTeclado.get(campo);
+        if (selector?.isOpen && selector.activeOption && ["ArrowUp", "ArrowDown"].includes(evento.key)) return;
+        if (selector?.isOpen && selector.activeOption && evento.key === "Enter" && !evento.shiftKey) {
+            selector.tallerAvanzar = true;
+            setTimeout(() => { selector.tallerAvanzar = false; }, 0);
+            return;
+        }
+        let direccion = 0;
+        if (evento.key === "Enter" || evento.key === "Tab") direccion = evento.shiftKey ? -1 : 1;
+        if (!evento.shiftKey && ["ArrowLeft", "ArrowRight"].includes(evento.key)) {
+            const posicion = evento.key === "ArrowLeft" ? campo.selectionStart : campo.selectionEnd;
+            const limite = evento.key === "ArrowLeft" ? 0 : campo.value.length;
+            if (posicion !== null && (posicion !== limite || campo.selectionStart !== campo.selectionEnd)) return;
+            direccion = evento.key === "ArrowLeft" ? -1 : 1;
+        }
+        if (!evento.shiftKey && fila && ["ArrowUp", "ArrowDown"].includes(evento.key)) {
+            const todas = [...panel.querySelectorAll("#tallerInsumos tr, #tallerProductos tr")];
+            const destino = todas[todas.indexOf(fila) + (evento.key === "ArrowDown" ? 1 : -1)];
+            const candidatos = destino ? celdasEditables(destino) : [];
+            const celda = candidatos.find((input) => input.dataset.tallerCol === campo.dataset.tallerCol) || candidatos.at(-1);
+            evento.preventDefault(); evento.stopPropagation();
+            selector?.close(); enfocarCelda(celda); return;
+        }
+        if (direccion && moverCelda(campo, direccion, evento.key === "Enter")) {
+            evento.preventDefault(); evento.stopPropagation(); selector?.close();
+        }
+    }, true);
 
     function iconos() { window.lucide?.createIcons({ root: panel }); }
     function error(mensaje = "") {
@@ -38,11 +128,14 @@
     }
     function selector(nodo, placeholder, recurso, extra, cambio) {
         let solicitud;
+        let descartarApertura = false;
         const control = new TomSelect(nodo, {
             valueField: "codigo", labelField: "etiqueta", searchField: ["codigo", "descripcion", "referencia"],
             placeholder, maxItems: 1, create: false, loadThrottle: 300, preload: false,
             dropdownParent: "body", plugins: ["clear_button"],
             render: {
+                item: (dato, escapar) => `<div><span class="taller__option-code">${escapar(dato.codigo)}</span>${dato.descripcion !== dato.codigo ? `<span class="taller__option-label">${escapar(dato.descripcion)}</span>` : ""}</div>`,
+                option: (dato, escapar) => `<div><span class="taller__option-code">${escapar(dato.codigo)}</span>${dato.descripcion !== dato.codigo ? `<span class="taller__option-label">${escapar(dato.descripcion)}</span>` : ""}</div>`,
                 no_results: () => '<div class="no-results">Sin coincidencias</div>',
                 loading: () => '<div class="loading">Consultando Siesa...</div>',
             },
@@ -51,6 +144,7 @@
                 if (this.settings.shouldLoad(consulta)) this.load(consulta);
             },
             onDropdownOpen: function () {
+                if (descartarApertura) { this.close(); return; }
                 this.loadedSearches = {};
                 const consulta = this.control_input.value;
                 if (this.settings.shouldLoad(consulta)) this.load(consulta);
@@ -67,7 +161,9 @@
                     const datos = Array.isArray(respuesta) ? respuesta : respuesta.data;
                     if (actual !== generacion) return callback();
                     control.clearOptions();
+                    const mantenerCerrado = descartarApertura;
                     callback(datos.map((dato) => ({ ...dato, etiqueta: `${dato.codigo} · ${dato.descripcion}` })));
+                    if (mantenerCerrado) { control.close(); descartarApertura = true; }
                 } catch (fallo) {
                     callback();
                     if (fallo.name !== "AbortError" && actual === generacion) error(fallo.message);
@@ -76,6 +172,20 @@
             onChange: () => { if (!ocupado) cambio?.(); },
         });
         control.on("destroy", () => solicitud?.abort());
+        control.dropdown.classList.add("taller-dropdown");
+        control.control_input.addEventListener("keydown", (evento) => {
+            if (evento.key === "Escape") descartarApertura = true;
+        }, true);
+        control.control_input.addEventListener("input", () => { descartarApertura = false; }, true);
+        control.control_input.addEventListener("focus", () => { descartarApertura = false; }, true);
+        control.control.addEventListener("pointerdown", () => { descartarApertura = false; }, true);
+        selectoresTeclado.set(control.control_input, control);
+        control.on("item_add", () => {
+            if (control.tallerAvanzar) {
+                control.tallerAvanzar = false;
+                queueMicrotask(() => { control.close(); moverCelda(control.control_input, 1); });
+            }
+        });
         return control;
     }
     async function cargarControl(nombre, recurso, extra = {}) {
@@ -104,9 +214,11 @@
         tr.children[1].appendChild(lote);
         const cantidad = document.createElement("input");
         cantidad.type = "number"; cantidad.min = "0.0001"; cantidad.step = "0.0001";
+        cantidad.placeholder = "0,0000";
         cantidad.value = fila.cantidad; cantidad.setAttribute("aria-label", "Cantidad");
         tr.children[3].appendChild(cantidad);
         fila.cantidadInput = cantidad;
+        cantidad.dataset.tallerCol = "2";
         cantidad.addEventListener("input", () => { fila.cantidad = cantidad.value; error(); recalcular(); });
         for (const indice of grupo === "insumos" ? [2, 4, 5, 6] : [2, 4, 6, 7, 8]) {
             tr.children[indice].appendChild(document.createElement("output"));
@@ -114,11 +226,13 @@
         if (grupo === "productos") {
             const precio = document.createElement("input");
             precio.type = "number"; precio.min = "0"; precio.step = "0.01";
+            precio.placeholder = "0,00";
             precio.setAttribute("aria-label", "Precio de venta editable");
             precio.addEventListener("input", () => {
                 fila.precio = precio.value; fila.modificado = true; error(); recalcular();
             });
             fila.precioInput = precio;
+            precio.dataset.tallerCol = "3";
             tr.children[5].appendChild(precio);
         }
         const quitar = document.createElement("button");
@@ -140,6 +254,8 @@
         fila.lote = selector(lote, "Sin lote", "lotes", () => ({ item: fila.producto.getValue(), bodega: bodega(grupo),
             solo_con_existencia: grupo === "insumos" ? "true" : "false" }),
             () => actualizarFila(fila));
+        fila.producto.control_input.dataset.tallerCol = "0";
+        fila.lote.control_input.dataset.tallerCol = "1";
         filas[grupo].push(fila);
         if (inicial) {
             fila.producto.addOption({ codigo: inicial.item, descripcion: inicial.descripcion, etiqueta: `${inicial.item} · ${inicial.descripcion}` });
@@ -156,9 +272,11 @@
         const item = fila.producto.getValue();
         fila.detalle = null;
         fila.estado.textContent = "";
+        fila.estado.dataset.estado = "info";
         recalcular();
         if (!item || !bodega(fila.grupo) || !controles.Lista.getValue()) return;
         fila.estado.textContent = "Consultando...";
+        fila.tr.setAttribute("aria-busy", "true");
         try {
             if (recargarLotes) {
                 fila.lote.clear(true); fila.lote.clearOptions();
@@ -171,6 +289,7 @@
                 if (fila.loteInicial) { fila.lote.setValue(fila.loteInicial, true); fila.loteInicial = null; }
             }
             if (fila.manejaLote && !fila.lote.getValue()) {
+                fila.estado.dataset.estado = "warning";
                 fila.estado.textContent = fila.lote.options && Object.keys(fila.lote.options).length
                     ? "Selecciona un lote" : "Sin lotes disponibles. Crea el lote en Siesa antes del movimiento.";
                 return;
@@ -182,6 +301,7 @@
             if (fila.precioInput) fila.precioInput.value = fila.precio;
             const avisos = Array.isArray(detalle.avisos) ? detalle.avisos.filter((aviso) => typeof aviso === "string") : [];
             if (fila.grupo === "insumos" && detalle.tiene_costo === false) avisos.push("Sin costo en Siesa: insumo bloqueado.");
+            if (fila.grupo === "insumos" && detalle.tiene_costo === false) fila.estado.dataset.estado = "warning";
             if (fila.grupo === "productos" && detalle.tiene_precio === false) avisos.push("Sin precio vigente: ingresa el precio de venta.");
             if (fila.grupo === "productos" && typeof detalle.incluye_impuestos === "boolean") avisos.push(
                 detalle.incluye_impuestos ? "Precio con impuestos incluidos." : "Precio sin impuestos.");
@@ -189,8 +309,13 @@
             if (fila.precioInput) fila.precioInput.title = detalle.incluye_impuestos ? "Precio con impuestos incluidos" : "Precio sin impuestos";
             el("Sync").textContent = `Siesa · ${new Date().toLocaleTimeString("es-CO")}`;
         } catch (fallo) {
-            if (version === fila.version && actual === generacion) fila.estado.textContent = fallo.message;
-        } finally { recalcular(); }
+            if (version === fila.version && actual === generacion) {
+                fila.estado.dataset.estado = "error"; fila.estado.textContent = fallo.message;
+            }
+        } finally {
+            if (version === fila.version) fila.tr.removeAttribute("aria-busy");
+            recalcular();
+        }
     }
     function limpiarFilas() {
         for (const grupo of Object.keys(filas)) {
@@ -225,7 +350,10 @@
             if (!filas[grupo].length) completo = false;
             filas[grupo].forEach((fila) => {
                 const datos = datosFila(fila);
-                const pintar = (indice, valor) => { fila.tr.children[indice].querySelector("output").textContent = valor; };
+                const pintar = (indice, valor) => {
+                    const salida = fila.tr.children[indice].querySelector("output");
+                    salida.textContent = valor; salida.title = valor;
+                };
                 pintar(2, fila.detalle ? decimal.format(fila.detalle.existencia) : "—");
                 pintar(4, fila.detalle?.um || "—");
                 let insuficiente = false;
@@ -241,7 +369,7 @@
                     pintar(7, total.venta ? moneda.format(Math.round(datos.precio_venta * total.costo / total.venta * 100) / 100) : "—");
                     pintar(8, moneda.format(datos.cantidad * datos.precio_venta));
                 }
-                fila.cantidadInput.setAttribute("aria-invalid", String(insuficiente || Number(fila.cantidad) <= 0));
+                fila.cantidadInput.setAttribute("aria-invalid", String(insuficiente || (fila.cantidad !== "" && Number(fila.cantidad) <= 0)));
                 fila.cantidadInput.title = insuficiente ? "Supera la existencia disponible, incluido el consolidado" : "Cantidad";
                 if (!fila.detalle || !Number.isFinite(datos.cantidad) || datos.cantidad <= 0 || insuficiente ||
                     !Number.isFinite(datos.precio_venta) || datos.precio_venta < 0 || (grupo === "productos" && fila.precio === "")) completo = false;
@@ -257,6 +385,12 @@
         el("Merma").textContent = decimal.format(total.merma);
         el("Merma").classList.toggle("taller__negative", total.merma < 0);
         el("Rendimiento").textContent = porcentaje(total.pesoInsumos ? total.pesoProductos / total.pesoInsumos : 0);
+        for (const [grupo, nombre] of [["insumos", "InsumosCuenta"], ["productos", "ProductosCuenta"]]) {
+            const cantidad = filas[grupo].filter((fila) => fila.producto.getValue()).length;
+            el(nombre).textContent = `${cantidad} ${cantidad === 1 ? "ítem" : "ítems"}`;
+        }
+        const seleccionados = [...filas.insumos, ...filas.productos].filter((fila) => fila.producto.getValue()).length;
+        el("Preparados").textContent = `${seleccionados} ${seleccionados === 1 ? "ítem seleccionado" : "ítems seleccionados"}`;
         const unidades = new Set([...insumos, ...productos].map((fila) => fila.um?.trim().toLowerCase()).filter(Boolean));
         if (unidades.size > 1) {
             el("Merma").textContent = "UM diferentes"; el("Rendimiento").textContent = "—";
@@ -268,7 +402,7 @@
     }
     function renderConsolidado() {
         el("Consolidado").hidden = !pendientes.length;
-        el("Cuenta").textContent = `${pendientes.length} talleres`;
+        el("Cuenta").textContent = `${pendientes.length} ${pendientes.length === 1 ? "taller" : "talleres"}`;
         el("ConsolidadoBody").replaceChildren();
         let costo = 0; let venta = 0;
         pendientes.forEach((taller, indice) => {
@@ -392,6 +526,7 @@
         } catch (fallo) { error(fallo.message); }
     }
     async function abrir(id, nombre) {
+        document.body.classList.add("taller-active");
         panel.hidden = false;
         if (empresa === id && controles.Centro) return;
         empresa = id; generacion++; pendientes = []; configurado = false; error();
@@ -424,8 +559,9 @@
                 el("Fecha").value = `${fecha.slice(0, 4)}-${fecha.slice(4, 6)}-${fecha.slice(6, 8)}`;
             }
             el("Aviso").hidden = configurado && !soloHoy;
+            el("Aviso").classList.toggle("is-warning", !configurado);
             el("Aviso").textContent = configurado
-                ? (soloHoy ? "Existencias y costos al corte de hoy (Colombia). Los lotes nuevos deben estar creados en Siesa." : "")
+                ? (soloHoy ? "Inventario al corte de hoy · Colombia" : "")
                 : `Conexión de lectura pendiente. Falta configurar en este servidor: ${datos.faltantes.join(", ")}.`;
             if (configurado) await Promise.all([cargarControl("Centro", "centros"), cargarControl("Lista", "listas")]);
         } catch (fallo) { error(fallo.message); }
@@ -443,16 +579,16 @@
     el("Confirmacion").addEventListener("cancel", (evento) => {
         if (!confirmado) evento.preventDefault(); else { confirmado = false; bloquear(false); }
     });
-    el("Excel").onclick = () => { panel.hidden = true; document.getElementById("stepDatos").hidden = false; };
+    el("Excel").onclick = () => { panel.hidden = true; document.body.classList.remove("taller-active"); document.getElementById("stepDatos").hidden = false; };
     el("CambiarEmpresa").onclick = () => {
         if (ocupado) return;
         if ((pendientes.length || [...filas.insumos, ...filas.productos].some((fila) => fila.producto.getValue())) &&
             !confirm("¿Cambiar de empresa? Al elegir otra empresa se descartará la captura y el consolidado actuales.")) return;
-        panel.hidden = true; document.getElementById("stepEmpresa").hidden = false;
+        panel.hidden = true; document.body.classList.remove("taller-active"); document.getElementById("stepEmpresa").hidden = false;
     };
     document.addEventListener("visibilitychange", () => { if (!document.hidden) actualizarTodo(); });
     window.addEventListener("beforeunload", (evento) => {
         if (pendientes.length || [...filas.insumos, ...filas.productos].some((fila) => fila.producto.getValue())) evento.preventDefault();
     });
-    window.Taller = { abrir, estaOcupado: () => ocupado, ocultar: () => { panel.hidden = true; } };
+    window.Taller = { abrir, estaOcupado: () => ocupado, ocultar: () => { panel.hidden = true; document.body.classList.remove("taller-active"); } };
 })();

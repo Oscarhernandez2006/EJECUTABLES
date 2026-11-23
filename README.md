@@ -67,6 +67,14 @@ La búsqueda de productos admite código, referencia o descripción desde un car
 espera 300 ms entre consultas; se cancelan búsquedas anteriores. No se usa un
 catálogo Excel como reemplazo de una consulta real.
 
+La captura del taller permite avanzar con **Enter** o **Tab** y retroceder con
+**Shift+Enter** o **Shift+Tab**. Las flechas arriba/abajo mantienen la columna
+entre filas; izquierda/derecha cambian de celda al llegar al límite del texto.
+Dentro de un desplegable abierto las flechas recorren opciones y Enter
+selecciona y avanza. Escape conserva cerrado el buscador aunque llegue una
+respuesta pendiente. Enter al final de una fila con producto y cantidad crea
+otra fila del mismo grupo; los valores calculados no reciben el foco.
+
 Las cantidades y el precio de venta son editables. El costo promedio de los
 insumos, la existencia a la fecha y la UM provienen exclusivamente del servidor.
 Al validar, exportar e importar se consultan nuevamente en Siesa; se comprueba
